@@ -98,7 +98,7 @@ export async function parseTranscript(
     } as never);
     if (error) console.error('[whatsapp] match_catalog_item failed:', error.message);
 
-    const matches = ((data ?? []) as unknown as CatalogMatch[]) ?? [];
+    const matches = (data ?? []) as unknown as CatalogMatch[];
     const best = matches[0];
 
     let item: ParsedItem;
@@ -181,7 +181,9 @@ export async function findOrCreateCustomer(whatsappFrom: string): Promise<number
   if (!digits) return null;
 
   const { data: customers } = await supabaseAdmin.from('customers').select('id, phone');
-  const match = (customers ?? []).find((c) => last10(c.phone) === digits);
+  const match = ((customers ?? []) as Array<{ id: number; phone: string }>).find(
+    (c) => last10(c.phone) === digits,
+  );
   if (match) return match.id;
 
   const pretty = `${digits.slice(0, 5)} ${digits.slice(5)}`;
