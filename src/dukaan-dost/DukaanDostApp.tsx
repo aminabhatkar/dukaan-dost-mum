@@ -133,7 +133,16 @@ export default function DukaanDostApp() {
   const delivered = s.orders.filter((o) => o.state === "delivered");
   const summary = (items: { n: string }[]) => items.map((i) => i.n.split(" (")[0]).join(", ");
 
-  const cust = s.customers.find((c) => c.id === s.custId) || s.customers[0];
+  const cust =
+    s.customers.find((c) => c.id === s.custId) ||
+    s.customers[0] || {
+      id: "",
+      name: "",
+      phone: "",
+      due: 0,
+      prefs: [],
+      entries: [],
+    };
   const totalDue = s.customers.reduce((a, c) => a + c.due, 0);
   const payNum = parseInt(s.pay || "0", 10) || 0;
 
