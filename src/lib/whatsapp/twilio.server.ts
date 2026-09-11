@@ -77,7 +77,7 @@ export async function sendWhatsAppMessage(to: string, body: string): Promise<voi
     const auth = twilioBasicAuthHeader();
     if (!sid || !auth) {
       throw new Error(
-        'Twilio is not configured: link the Twilio connection, or set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.',
+        'Twilio is not configured: link the Twilio connection, or set TWILIO_API_KEY_SID / TWILIO_API_KEY_SECRET, or TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.',
       );
     }
     res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
