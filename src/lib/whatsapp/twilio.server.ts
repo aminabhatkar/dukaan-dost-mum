@@ -80,6 +80,7 @@ export async function sendWhatsAppMessage(to: string, body: string): Promise<voi
         'Twilio is not configured: link the Twilio connection, or set TWILIO_API_KEY_SID / TWILIO_API_KEY_SECRET, or TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.',
       );
     }
+    console.log(`[twilio][diag] outbound send: url=https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json body=${params.toString()}`);
     res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
