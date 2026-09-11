@@ -1,0 +1,95 @@
+{
+  "capabilities": [
+    {
+      "capability": "code",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "migrate",
+      "status": "in_progress",
+      "next_action": "Recreate React + Vite frontend as TanStack Start app"
+    },
+    {
+      "capability": "schema",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No schema; app uses in-memory mock data"
+    },
+    {
+      "capability": "records",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "seed",
+      "status": "in_progress",
+      "next_action": "Copy seed data (orders, customers, rate items, catalog) into new app"
+    },
+    {
+      "capability": "auth_identities",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "replace",
+      "status": "pending",
+      "next_action": "Login screen is a Google placeholder with no real auth; preserve as simple login gate for now, replace with Lovable auth if needed later"
+    },
+    {
+      "capability": "authorization",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No authorization model"
+    },
+    {
+      "capability": "storage",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "defer",
+      "status": "pending",
+      "next_action": "Photo/file upload is mock only; defer real storage until requested"
+    },
+    {
+      "capability": "external_providers",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No external providers"
+    },
+    {
+      "capability": "public_endpoints",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No public endpoints"
+    },
+    {
+      "capability": "callbacks_webhooks",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No callbacks or webhooks"
+    },
+    {
+      "capability": "schedules",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No schedules"
+    },
+    {
+      "capability": "secrets",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No secrets required"
+    },
+    {
+      "capability": "cutover",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "none",
+      "status": "not_applicable",
+      "next_action": "No production cutover"
+    },
+    {
+      "capability": "verification",
+      "source": "github:aminabhatkar/dukaan_dost",
+      "outcome": "build_and_preview",
+      "status": "pending",
+      "next_action": "Build app and verify key screens in preview"
+    }
+  ]
+}
