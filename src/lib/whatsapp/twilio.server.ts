@@ -1,7 +1,8 @@
 // Twilio helpers for the WhatsApp ordering webhook.
 // Sending goes through the Lovable connector gateway when a Twilio connection is
 // linked (TWILIO_API_KEY present); otherwise it falls back to direct Basic Auth
-// with TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.
+// preferring TWILIO_API_KEY_SID / TWILIO_API_KEY_SECRET, then falling back to
+// TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/twilio';
 
@@ -11,6 +12,12 @@ function env(name: string): string | undefined {
 }
 
 export function twilioBasicAuthHeader(): string | undefined {
+  const apiKeySid = env('TWILIO_API_KEY_SID');
+  const apiKeySecret = env('TWILIO_API_KEY_SECRET');
+  if (apiKeySid && apiKeySecret) {
+    return `Basic ${btoa(`${apiKeySid}:${apiKeySecret}`)}`;
+  }
+
   const sid = env('TWILIO_ACCOUNT_SID');
   const token = env('TWILIO_AUTH_TOKEN');
   if (!sid || !token) return undefined;
@@ -22,7 +29,7 @@ export async function downloadTwilioMedia(url: string): Promise<ArrayBuffer> {
   const auth = twilioBasicAuthHeader();
   if (!auth) {
     throw new Error(
-      'Cannot download WhatsApp media: TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN are not configured.',
+      'Cannot download WhatsApp media: set TWILIO_API_KEY_SID / TWILIO_API_KEY_SECRET or TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.',
     );
   }
   // TEMP DIAGNOSTIC: isolate media-download 401 (no secret contents logged).
