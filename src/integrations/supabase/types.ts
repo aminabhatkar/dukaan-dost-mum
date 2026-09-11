@@ -255,6 +255,7 @@ export type Database = {
           id: number
           state: string
           total: number
+          twilio_message_sid: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -264,6 +265,7 @@ export type Database = {
           id?: number
           state?: string
           total?: number
+          twilio_message_sid?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -273,6 +275,7 @@ export type Database = {
           id?: number
           state?: string
           total?: number
+          twilio_message_sid?: string | null
         }
         Relationships: [
           {
@@ -300,6 +303,7 @@ export type Database = {
           raw_transcript: string | null
           status: string
           total: number
+          twilio_message_sid: string | null
           updated_at: string
           whatsapp_from: string
         }
@@ -311,6 +315,7 @@ export type Database = {
           raw_transcript?: string | null
           status?: string
           total?: number
+          twilio_message_sid?: string | null
           updated_at?: string
           whatsapp_from: string
         }
@@ -322,6 +327,7 @@ export type Database = {
           raw_transcript?: string | null
           status?: string
           total?: number
+          twilio_message_sid?: string | null
           updated_at?: string
           whatsapp_from?: string
         }
@@ -354,7 +360,20 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      match_catalog_item: {
+        Args: { _phrase: string }
+        Returns: {
+          category: string
+          id: number
+          name: string
+          price: number
+          score: number
+          times_ordered: number
+          unit: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never
