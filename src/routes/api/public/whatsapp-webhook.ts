@@ -8,7 +8,12 @@ export const Route = createFileRoute('/api/public/whatsapp-webhook')({
         let form: Record<string, string> = {};
         try {
           const raw = await request.text();
+          // TEMP DIAGNOSTIC: log the complete raw Twilio form body verbatim.
+          console.log(`[whatsapp][diag] RAW_BODY_BEGIN>>>${raw}<<<RAW_BODY_END`);
           form = Object.fromEntries(new URLSearchParams(raw));
+          for (const [k, v] of Object.entries(form)) {
+            console.log(`[whatsapp][diag] field ${k} = >>>${v}<<<`);
+          }
         } catch (err) {
           console.error('[whatsapp-webhook] could not read body:', err);
         }
