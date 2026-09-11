@@ -25,9 +25,18 @@ export async function downloadTwilioMedia(url: string): Promise<ArrayBuffer> {
       'Cannot download WhatsApp media: TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN are not configured.',
     );
   }
+  // TEMP DIAGNOSTIC: isolate media-download 401 (no secret contents logged).
+  console.log(`[twilio][diag] media download request: url=${url} authHeaderLength=${auth.length}`);
   const res = await fetch(url, { headers: { Authorization: auth }, redirect: 'follow' });
   if (!res.ok) {
+    const headersObj: Record<string, string> = {};
+    res.headers.forEach((value, key) => {
+      headersObj[key] = value;
+    });
     const body = await res.text();
+    console.error(
+      `[twilio][diag] media download failed: status=${res.status} headers=${JSON.stringify(headersObj)}`,
+    );
     throw new Error(`Twilio media download failed [${res.status}]: ${body}`);
   }
   return await res.arrayBuffer();
