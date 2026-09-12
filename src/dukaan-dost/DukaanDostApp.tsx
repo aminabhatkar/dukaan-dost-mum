@@ -256,6 +256,232 @@ export default function DukaanDostApp() {
     });
   };
 
+  const fetchLiveTracking = async () => {
+    const { data: orderRows, error: ordersError } = await supabase
+      .from("orders")
+      .select("id, customer_id, state, total, accepted_at, delivered_at")
+      .in("state", ["accepted", "delivered"]);
+    if (ordersError || !orderRows) {
+      console.error("[tracking] fetch failed:", ordersError?.message);
+      return;
+    }
+    if (orderRows.length === 0) {
+      setLiveTracking({ accepted: [], delivered: [] });
+      return;
+    }
+
+    const orderIds = orderRows.map((o) => o.id);
+    const customerIds = Array.from(
+      new Set(orderRows.map((o) => o.customer_id).filter((v): v is number => v !== null)),
+    );
+
+    const [{ data: itemRows }, { data: customerRows }] = await Promise.all([
+      supabase
+        .from("order_items")
+        .select("order_id, spoken_text, resolved_catalog_item_id, guessed_catalog_item_id")
+        .in("order_id", orderIds),
+      supabase.from("customers").select("id, name").in("id", customerIds),
+    ]);
+
+    const catalogIds = Array.from(
+      new Set(
+        (itemRows ?? [])
+          .flatMap((it) => [it.resolved_catalog_item_id, it.guessed_catalog_item_id])
+          .filter((v): v is number => v !== null),
+      ),
+    );
+    const { data: catalogRows } = catalogIds.length
+      ? await supabase.from("catalog_items").select("id, name").in("id", catalogIds)
+      : { data: [] as { id: number; name: string }[] };
+
+    const catalogById = new Map((catalogRows ?? []).map((c) => [c.id, c]));
+    const customerById = new Map((customerRows ?? []).map((c) => [c.id, c]));
+
+    const mapped: LiveTrackingOrder[] = orderRows.map((o) => {
+      const itemSummary = (itemRows ?? [])
+        .filter((it) => it.order_id === o.id)
+        .map((it) => {
+          if (it.resolved_catalog_item_id)
+            return catalogById.get(it.resolved_catalog_item_id)?.name ?? it.spoken_text;
+          if (it.guessed_catalog_item_id)
+            return catalogById.get(it.guessed_catalog_item_id)?.name ?? it.spoken_text;
+          return it.spoken_text;
+        })
+        .join(", ");
+
+      return {
+        dbId: o.id,
+        customerId: o.customer_id,
+        state: o.state === "delivered" ? ("delivered" as const) : ("accepted" as const),
+        cust: (o.customer_id ? customerById.get(o.customer_id)?.name : undefined) ?? "Grahak",
+        summary: itemSummary,
+        total: Number(o.total),
+        acceptedAt: o.accepted_at,
+        deliveredAt: o.delivered_at,
+      };
+    });
+
+    const byDateDesc = (a: string | null, b: string | null) =>
+      new Date(b ?? 0).getTime() - new Date(a ?? 0).getTime();
+
+    setLiveTracking({
+      accepted: mapped
+        .filter((o) => o.state === "accepted")
+        .sort((a, b) => byDateDesc(a.acceptedAt, b.acceptedAt)),
+      delivered: mapped
+        .filter((o) => o.state === "delivered")
+        .sort((a, b) => byDateDesc(a.deliveredAt, b.deliveredAt)),
+    });
+  };
+
+  useEffect(() => {
+    if (!hydrated) return;
+    fetchLiveTracking();
+    const interval = setInterval(fetchLiveTracking, 20000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  const postDeliveryCharge = async (
+    orderId: number,
+    customerId: number | null,
+    total: number,
+    itemSummary: string,
+  ): Promise<number | null> => {
+    if (customerId === null) {
+      console.error("[ledger] cannot post charge: order", orderId, "has no customer");
+      return null;
+    }
+    const { data, error } = await supabase
+      .from("ledger_entries")
+      .insert({
+        customer_id: customerId,
+        order_id: orderId,
+        type: "charge",
+        amount: total,
+        note: "Order liya - " + itemSummary,
+      })
+      .select("id")
+      .single();
+    if (error || !data) {
+      console.error("[ledger] charge insert FAILED for order", orderId, error?.message);
+      return null;
+    }
+    return data.id;
+  };
+
+  const reverseOrderCharge = async (
+    orderId: number,
+    customerId: number | null,
+    total: number,
+    note: string,
+  ) => {
+    if (customerId === null) {
+      console.error("[ledger] cannot reverse charge: order", orderId, "has no customer");
+      return;
+    }
+    const { data: reversals, error: reversalError } = await supabase
+      .from("ledger_entries")
+      .select("reverses_entry_id")
+      .not("reverses_entry_id", "is", null);
+    if (reversalError) {
+      console.error("[ledger] reversal lookup FAILED for order", orderId, reversalError.message);
+      return;
+    }
+    const reversedIds = (reversals ?? [])
+      .map((r) => r.reverses_entry_id)
+      .filter((v): v is number => v !== null);
+
+    let query = supabase
+      .from("ledger_entries")
+      .select("id")
+      .eq("order_id", orderId)
+      .eq("type", "charge")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (reversedIds.length) query = query.not("id", "in", `(${reversedIds.join(",")})`);
+
+    const { data: charges, error: chargeError } = await query;
+    if (chargeError) {
+      console.error("[ledger] charge lookup FAILED for order", orderId, chargeError.message);
+      return;
+    }
+    const charge = (charges ?? [])[0];
+    if (!charge) {
+      console.error("[ledger] no unreversed charge found for order", orderId, "- skipping reversal");
+      return;
+    }
+
+    const { error } = await supabase.from("ledger_entries").insert({
+      customer_id: customerId,
+      order_id: orderId,
+      type: "reversal",
+      amount: -total,
+      note,
+      reverses_entry_id: charge.id,
+    });
+    if (error) console.error("[ledger] reversal insert FAILED for order", orderId, error.message);
+  };
+
+  const markDelivered = async (o: LiveTrackingOrder) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ state: "delivered", delivered_at: new Date().toISOString() })
+      .eq("id", o.dbId);
+    if (error) {
+      console.error("[tracking] mark delivered failed:", error.message);
+      showToast("Delivery mark nahi ho paayi, dobara try karein", () => {});
+      return;
+    }
+    await postDeliveryCharge(o.dbId, o.customerId, o.total, o.summary);
+    await fetchLiveTracking();
+    showToast(o.cust + " — deliver ho gaya", () => {
+      void (async () => {
+        const { error: undoError } = await supabase
+          .from("orders")
+          .update({ state: "accepted", delivered_at: null })
+          .eq("id", o.dbId);
+        if (undoError) {
+          console.error("[tracking] undo delivery failed:", undoError.message);
+          showToast("Undo nahi ho paaya, dobara try karein", () => {});
+          return;
+        }
+        await reverseOrderCharge(o.dbId, o.customerId, o.total, "Delivery undo - " + o.summary);
+        await fetchLiveTracking();
+      })();
+    });
+  };
+
+  const markUndelivered = async (o: LiveTrackingOrder) => {
+    const { error } = await supabase
+      .from("orders")
+      .update({ state: "accepted", delivered_at: null })
+      .eq("id", o.dbId);
+    if (error) {
+      console.error("[tracking] mark undelivered failed:", error.message);
+      showToast("Wapas baaki mein daalna nahi ho paaya", () => {});
+      return;
+    }
+    await reverseOrderCharge(o.dbId, o.customerId, o.total, "Delivery undo - " + o.summary);
+    await fetchLiveTracking();
+    showToast(o.cust + " — wapas 'baaki' mein daala", () => {
+      void (async () => {
+        const { error: undoError } = await supabase
+          .from("orders")
+          .update({ state: "delivered", delivered_at: new Date().toISOString() })
+          .eq("id", o.dbId);
+        if (undoError) {
+          console.error("[tracking] re-mark delivered failed:", undoError.message);
+          showToast("Undo nahi ho paaya, dobara try karein", () => {});
+          return;
+        }
+        await postDeliveryCharge(o.dbId, o.customerId, o.total, o.summary);
+        await fetchLiveTracking();
+      })();
+    });
+  };
+
+
   const fetchLiveCatalogItems = async () => {
     const { data, error } = await supabase
       .from("catalog_items")
