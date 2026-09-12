@@ -27,6 +27,16 @@ interface ToastState {
   undo: () => void;
 }
 
+interface CatalogItemRow {
+  id: number;
+  category: string;
+  name: string;
+  unit: string;
+  price: number;
+  is_active: boolean;
+  times_ordered: number;
+}
+
 interface AppState {
   screen: Screen;
   orders: Order[];
@@ -39,6 +49,7 @@ interface AppState {
   items: RateItem[];
   editId: string | null;
   itName: string;
+  itCategory: string;
   itUnit: string;
   itPrice: string;
   uploadName: string | null;
@@ -66,6 +77,7 @@ const initialState: AppState = {
   items: ITEMS,
   editId: null,
   itName: "",
+  itCategory: "",
   itUnit: "",
   itPrice: "",
   uploadName: null,
