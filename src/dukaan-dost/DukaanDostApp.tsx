@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Customer, Order, RateItem, Screen, Sheet } from "./types";
-import { CATALOG, CUSTOMERS, ITEMS, ORDERS } from "./data";
+import { CUSTOMERS, ITEMS, ORDERS } from "./data";
 import { supabase } from "@/integrations/supabase/client";
 import { rs, telHref } from "./utils";
 import { Shell } from "./components/Shell";
@@ -1198,7 +1198,7 @@ export default function DukaanDostApp() {
             liveTracking.accepted.length + " delivery baaki, " + liveTracking.delivered.length + " ho gayi"
           }
 
-          khataSub={s.customers.length + " grahak · " + rs(totalDue) + " baaki"}
+          khataSub={liveCustomers.length + " grahak · " + rs(totalDue) + " baaki"}
           ratesSub={liveCatalogItems.length + " item ke rate saved"}
           onLogout={() => go("login")}
           onGoOrders={() => go("orders")}
@@ -1275,7 +1275,7 @@ export default function DukaanDostApp() {
           payHint={payNum > 0 ? cust.name + " ke khate mein" : "Number dabaiye"}
           keys={keys}
           onClose={() => update({ sheet: null })}
-          onSubmit={submitPay}
+          onSubmit={() => void submitPay()}
         />
       )}
 
@@ -1286,7 +1286,7 @@ export default function DukaanDostApp() {
           onNameChange={(v) => update({ newName: v })}
           onPhoneChange={(v) => update({ newPhone: v })}
           onClose={() => update({ sheet: null })}
-          onSubmit={submitCustomer}
+          onSubmit={() => void submitCustomer()}
         />
       )}
 
@@ -1302,13 +1302,13 @@ export default function DukaanDostApp() {
           onItUnitChange={(v) => update({ itUnit: v })}
           onItPriceChange={(v) => update({ itPrice: v.replace(/[^0-9]/g, "") })}
           onClose={() => update({ sheet: null })}
-          onSubmit={submitItem}
+          onSubmit={() => void submitItem()}
         />
       )}
 
       {s.sheet === "pref" && (
         <PrefSheet
-          title={s.prefFromOrder ? "Yeh kaunsa saman?" : s.prefEditIdx !== null ? "Pasand Badlein" : "Pasand Jodiye"}
+          title={s.prefFromOrder ? "Yeh kaunsa saman?" : s.prefRowId !== null ? "Pasand Badlein" : "Pasand Jodiye"}
           subtitle={s.prefFromOrder ? s.prefCustName + " ne kaha: " + s.prefPhrase : s.prefCustName + " ke liye"}
           prefCat={s.prefCat}
           onPrefCatChange={(v) => update({ prefCat: v, prefPick: "" })}
@@ -1318,7 +1318,7 @@ export default function DukaanDostApp() {
           prefNote={s.prefNote}
           onPrefNoteChange={(v) => update({ prefNote: v })}
           onClose={() => update({ sheet: null })}
-          onSubmit={submitPref}
+          onSubmit={() => void submitPref()}
         />
       )}
 
