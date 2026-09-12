@@ -68,7 +68,7 @@ export function PrefSheet({
       <div className="mt-4 text-[19px] font-extrabold">Kaunsa saman</div>
       {noChoices && (
         <div className="mt-2 rounded-[13px] border-2 border-warm-border-light bg-secondary p-4 px-3.5 text-[17px] font-semibold leading-relaxed text-ink-subtle">
-          Upar se cheez chuniye ya naam likhiye, phir yahan brand dikhenge.
+          Upar se category chuniye, phir yahan brand dikhenge.
         </div>
       )}
       <div className="mt-2 flex flex-col gap-2">
