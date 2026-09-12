@@ -234,7 +234,7 @@ export default function DukaanDostApp() {
       supabase
         .from("order_items")
         .select(
-          "order_id, spoken_text, quantity_text, is_vague, guessed_catalog_item_id, guess_reason, resolved_catalog_item_id",
+          "id, order_id, spoken_text, quantity_text, is_vague, guessed_catalog_item_id, guess_reason, resolved_catalog_item_id",
         )
         .in("order_id", orderIds),
       supabase.from("customers").select("id, name, phone").in("id", customerIds),
@@ -248,36 +248,59 @@ export default function DukaanDostApp() {
       ),
     );
     const { data: catalogRows } = catalogIds.length
-      ? await supabase.from("catalog_items").select("id, name, unit").in("id", catalogIds)
-      : { data: [] as { id: number; name: string; unit: string }[] };
+      ? await supabase.from("catalog_items").select("id, name, unit, category").in("id", catalogIds)
+      : { data: [] as { id: number; name: string; unit: string; category: string }[] };
 
     const catalogById = new Map((catalogRows ?? []).map((c) => [c.id, c]));
     const customerById = new Map((customerRows ?? []).map((c) => [c.id, c]));
 
-    const mapped: Order[] = orderRows.map((o) => {
+    const mapped: LiveNewOrder[] = orderRows.map((o) => {
       const customer = o.customer_id ? customerById.get(o.customer_id) : undefined;
-      const items = (itemRows ?? [])
+      const items: LiveNewOrderItem[] = (itemRows ?? [])
         .filter((it) => it.order_id === o.id)
         .map((it) => {
           if (it.resolved_catalog_item_id) {
             const cat = catalogById.get(it.resolved_catalog_item_id);
-            return { n: cat?.name ?? it.spoken_text, q: it.quantity_text };
+            return {
+              itemId: it.id,
+              n: cat?.name ?? it.spoken_text,
+              q: it.quantity_text,
+              vague: false,
+              guess: "",
+              guessWhy: "",
+              guessedId: null,
+              category: cat?.category ?? null,
+            };
           }
           if (it.guessed_catalog_item_id) {
             const cat = catalogById.get(it.guessed_catalog_item_id);
             return {
+              itemId: it.id,
               n: `"${it.spoken_text}"`,
               q: it.quantity_text,
               vague: true,
-              ...(cat ? { guess: `${cat.name} (${cat.unit})` } : {}),
-              ...(it.guess_reason ? { guessWhy: it.guess_reason } : {}),
+              guess: cat ? `${cat.name} (${cat.unit})` : "",
+              guessWhy: it.guess_reason ?? "",
+              guessedId: it.guessed_catalog_item_id,
+              category: cat?.category ?? null,
             };
           }
-          return { n: `"${it.spoken_text}" (samajh nahi aaya)`, q: it.quantity_text };
+          return {
+            itemId: it.id,
+            n: `"${it.spoken_text}" (samajh nahi aaya)`,
+            q: it.quantity_text,
+            vague: false,
+            guess: "",
+            guessWhy: "",
+            guessedId: null,
+            category: null,
+          };
         });
 
       return {
         id: `live-${o.id}`,
+        dbId: o.id,
+        customerId: o.customer_id,
         cust: customer?.name ?? "Grahak",
         phone: customer?.phone ?? "",
         time: new Date(o.created_at).toLocaleTimeString("en-IN", {
@@ -285,7 +308,6 @@ export default function DukaanDostApp() {
           minute: "2-digit",
           hour12: true,
         }),
-        state: "new" as const,
         items,
         total: Number(o.total),
       };
