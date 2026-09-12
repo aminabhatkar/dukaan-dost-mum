@@ -167,7 +167,10 @@ type PrefRow = {
 export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
-  const [liveNewOrders, setLiveNewOrders] = useState<Order[]>([]);
+  const [liveNewOrders, setLiveNewOrders] = useState<LiveNewOrder[]>([]);
+  const [liveCustomers, setLiveCustomers] = useState<LiveCustomer[]>([]);
+  const [liveEntries, setLiveEntries] = useState<LedgerRow[]>([]);
+  const [livePrefs, setLivePrefs] = useState<PrefRow[]>([]);
   const [liveTracking, setLiveTracking] = useState<{
     accepted: LiveTrackingOrder[];
     delivered: LiveTrackingOrder[];
