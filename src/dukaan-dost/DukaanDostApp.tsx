@@ -1238,11 +1238,14 @@ export default function DukaanDostApp() {
             update({
               sheet: "pref",
               prefKey: null,
-              prefEditIdx: null,
+              prefRowId: null,
+              prefOrderItemId: null,
+              prefOrderCustomerId: null,
               prefFromOrder: false,
               prefCustName: cust.name,
               prefCat: "",
               prefPick: "",
+              prefPickId: null,
               prefNote: "",
               prefPhrase: "",
             })
