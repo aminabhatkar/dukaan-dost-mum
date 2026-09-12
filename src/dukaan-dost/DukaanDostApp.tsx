@@ -109,6 +109,7 @@ export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
   const [liveNewOrders, setLiveNewOrders] = useState<Order[]>([]);
+  const [liveCatalogItems, setLiveCatalogItems] = useState<CatalogItemRow[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -252,6 +253,81 @@ export default function DukaanDostApp() {
         .update({ state: "new", accepted_at: null })
         .eq("id", dbId)
         .then(() => fetchLiveNewOrders());
+    });
+  };
+
+  const fetchLiveCatalogItems = async () => {
+    const { data, error } = await supabase
+      .from("catalog_items")
+      .select("id, category, name, unit, price, is_active, times_ordered")
+      .order("category", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) {
+      console.error("[rates] fetch failed:", error.message);
+      return;
+    }
+    setLiveCatalogItems((data ?? []).map((r) => ({ ...r, price: Number(r.price) })));
+  };
+
+  useEffect(() => {
+    if (!hydrated) return;
+    fetchLiveCatalogItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  const submitItem = async () => {
+    const name = s.itName.trim();
+    const category = s.itCategory.trim();
+    const price = parseInt(s.itPrice || "0", 10) || 0;
+    const unit = s.itUnit.trim() || "per nag";
+    if (!name || !category) {
+      update({ sheet: null });
+      return;
+    }
+
+    if (s.editId) {
+      const dbId = Number(s.editId);
+      const before = liveCatalogItems.find((i) => i.id === dbId);
+      update({ sheet: null });
+      const { error } = await supabase.from("catalog_items").update({ name, unit, price, category }).eq("id", dbId);
+      if (error) {
+        console.error("[rates] update failed:", error.message);
+        showToast("Rate update nahi ho paaya: " + error.message, () => {});
+        return;
+      }
+      await fetchLiveCatalogItems();
+      showToast(name + " ka rate " + rs(price) + " kar diya", () => {
+        if (!before) return;
+        void supabase
+          .from("catalog_items")
+          .update({ name: before.name, unit: before.unit, price: before.price, category: before.category })
+          .eq("id", dbId)
+          .then(() => fetchLiveCatalogItems());
+      });
+      return;
+    }
+
+    const { data: created, error } = await supabase
+      .from("catalog_items")
+      .insert({ name, unit, price, category, is_active: true })
+      .select("id")
+      .single();
+    update({ sheet: null });
+    if (error || !created) {
+      const message =
+        error?.code === "23505" ? name + " is category mein pehle se hai" : "Item add nahi ho paaya: " + (error?.message ?? "unknown error");
+      console.error("[rates] insert failed:", error?.message);
+      showToast(message, () => {});
+      return;
+    }
+    await fetchLiveCatalogItems();
+    const newId = created.id;
+    showToast(name + " list mein jud gaya", () => {
+      void supabase
+        .from("catalog_items")
+        .delete()
+        .eq("id", newId)
+        .then(() => fetchLiveCatalogItems());
     });
   };
 
