@@ -623,27 +623,26 @@ export default function DukaanDostApp() {
     },
   }));
 
-  const pendingOrders = pending.map((o) => ({
-    id: o.id,
+  const pendingOrders = liveTracking.accepted.map((o) => ({
+    id: `live-${o.dbId}`,
     cust: o.cust,
     totalText: rs(o.total),
-    summary: summary(o.items),
+    summary: o.summary,
     onToggle: () => {
-      setOrderState(o.id, "delivered");
-      showToast(o.cust + " — deliver ho gaya", () => setOrderState(o.id, "accepted"));
+      void markDelivered(o);
     },
   }));
 
-  const deliveredOrders = delivered.map((o) => ({
-    id: o.id,
+  const deliveredOrders = liveTracking.delivered.map((o) => ({
+    id: `live-${o.dbId}`,
     cust: o.cust,
     totalText: rs(o.total),
-    summary: summary(o.items),
+    summary: o.summary,
     onToggle: () => {
-      setOrderState(o.id, "accepted");
-      showToast(o.cust + " — wapas 'baaki' mein daala", () => setOrderState(o.id, "delivered"));
+      void markUndelivered(o);
     },
   }));
+
 
   const customerRows = s.customers.map((c) => ({
     id: c.id,
