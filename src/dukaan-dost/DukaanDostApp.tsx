@@ -830,18 +830,21 @@ export default function DukaanDostApp() {
   const delivered = s.orders.filter((o) => o.state === "delivered");
   const summary = (items: { n: string }[]) => items.map((i) => i.n.split(" (")[0]).join(", ");
 
-  const cust =
-    s.customers.find((c) => c.id === s.custId) ||
-    s.customers[0] || {
-      id: "",
-      name: "",
-      phone: "",
-      due: 0,
-      prefs: [],
-      entries: [],
-    };
-  const totalDue = s.customers.reduce((a, c) => a + c.due, 0);
+  const cust: LiveCustomer =
+    liveCustomers.find((c) => String(c.id) === s.custId) ||
+    liveCustomers[0] || { id: 0, name: "", phone: "", balance: 0 };
+  const totalDue = liveCustomers.reduce((a, c) => a + c.balance, 0);
   const payNum = parseInt(s.pay || "0", 10) || 0;
+
+  const entryWhen = (iso: string) => {
+    const d = new Date(/[Zz]$/.test(iso) ? iso : iso + "Z");
+    const now = new Date();
+    const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+    const sameDay =
+      d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    if (sameDay) return "Aaj, " + time;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + ", " + time;
+  };
 
   const newOrders: NewOrderView[] = liveNewOrders.map((o) => ({
     id: o.id,
@@ -850,26 +853,40 @@ export default function DukaanDostApp() {
     time: o.time,
     telHref: telHref(o.phone),
     totalText: rs(o.total),
-    items: o.items.map((it, ix) => {
-      const key = o.id + ":" + ix;
-      const fixed = s.resolved[key];
-      return {
-        n: it.n,
-        q: it.q,
-        isVague: !!it.vague && !fixed,
-        isFixed: !!fixed,
-        fixedText: fixed ? fixed + " — pakka" : "",
-        guess: it.guess || "",
-        guessWhy: it.guessWhy || "",
-        // Confirming/changing a guessed item against the live order isn't wired yet —
-        // that belongs to the customer-preferences pass, not this one. Say so honestly
-        // instead of silently updating local state that resets on refresh.
-        onConfirm: () =>
-          showToast("Yeh abhi live orders ke liye save nahi hota — agle update mein aayega", () => {}),
-        onChange: () =>
-          showToast("Yeh abhi live orders ke liye save nahi hota — agle update mein aayega", () => {}),
-      };
-    }),
+    items: o.items.map((it, ix) => ({
+      n: it.n,
+      q: it.q,
+      isVague: it.vague,
+      isFixed: false,
+      fixedText: "",
+      guess: it.guess,
+      guessWhy: it.guessWhy,
+      onConfirm: () => {
+        if (it.guessedId === null) return;
+        void resolveOrderItem(
+          it.itemId,
+          it.guessedId,
+          it.category,
+          o.customerId,
+          it.guess.split(" (")[0] + " — pakka, pasand mein yaad rakha",
+        );
+      },
+      onChange: () =>
+        update({
+          sheet: "pref",
+          prefKey: o.id + ":" + ix,
+          prefRowId: null,
+          prefOrderItemId: it.itemId,
+          prefOrderCustomerId: o.customerId,
+          prefFromOrder: true,
+          prefCustName: o.cust,
+          prefCat: it.category ?? "",
+          prefPick: it.guessedId ? it.guess.split(" (")[0] ?? "" : "",
+          prefPickId: it.guessedId,
+          prefNote: "",
+          prefPhrase: it.n.replace(/^"|"$/g, ""),
+        }),
+    })),
     onAccept: () => {
       void acceptLiveOrder(o.id);
     },
@@ -896,28 +913,31 @@ export default function DukaanDostApp() {
   }));
 
 
-  const customerRows = s.customers.map((c) => ({
-    id: c.id,
+  const customerRows = liveCustomers.map((c) => ({
+    id: String(c.id),
     name: c.name,
     phone: c.phone,
     initial: c.name.charAt(0),
-    dueText: c.due > 0 ? rs(c.due) : rs(0),
-    dueLabel: c.due > 0 ? "Baaki" : "Chukta",
-    dueColor: c.due > 0 ? "var(--color-destructive)" : "var(--color-success)",
+    dueText: rs(c.balance > 0 ? c.balance : 0),
+    dueLabel: c.balance > 0 ? "Baaki" : "Chukta",
+    dueColor: c.balance > 0 ? "var(--color-destructive)" : "var(--color-success)",
     onOpen: () => {
-      update({ custId: c.id, screen: "customer" });
+      update({ custId: String(c.id), screen: "customer" });
       window.scrollTo(0, 0);
     },
   }));
+
+  const entryLabel = (type: string) =>
+    type === "payment" ? "Paisa mila" : type === "reversal" ? "Sudhaar" : "Order liya";
 
   const custDetail = {
     name: cust.name,
     phone: cust.phone,
     telHref: telHref(cust.phone),
-    dueText: rs(cust.due),
-    dueColor: cust.due > 0 ? "var(--color-destructive)" : "var(--color-success)",
-    prefCount: (cust.prefs || []).length,
-    prefs: (cust.prefs || []).map((p, i) => ({
+    dueText: rs(cust.balance),
+    dueColor: cust.balance > 0 ? "var(--color-destructive)" : "var(--color-success)",
+    prefCount: livePrefs.length,
+    prefs: livePrefs.map((p) => ({
       cat: p.cat,
       item: p.item,
       note: p.note,
@@ -925,129 +945,206 @@ export default function DukaanDostApp() {
         update({
           sheet: "pref",
           prefKey: null,
-          prefEditIdx: i,
+          prefRowId: p.id,
+          prefOrderItemId: null,
+          prefOrderCustomerId: null,
           prefFromOrder: false,
           prefCustName: cust.name,
           prefCat: p.cat,
           prefPick: p.item,
+          prefPickId: p.catalogItemId,
           prefNote: p.note,
           prefPhrase: "",
         }),
     })),
-    entries: cust.entries.map((e) => ({
-      label: e.label,
-      sub: e.sub,
-      glyph: e.t === "pay" ? "₹" : "✓",
-      dotBg: e.t === "pay" ? "var(--color-success)" : "var(--color-secondary)",
-      dotInk: e.t === "pay" ? "#FFFFFF" : "var(--color-ink)",
-      amtText: (e.t === "pay" ? "− " : "+ ") + rs(e.amt),
-      amtColor: e.t === "pay" ? "var(--color-success)" : "var(--color-destructive)",
-    })),
+    entries: liveEntries.map((e) => {
+      const label = entryLabel(e.type);
+      const note = (e.note ?? "").replace(/^(Order liya|Paisa mila)\s*-\s*/i, "").trim();
+      const positive = e.amount >= 0;
+      return {
+        label,
+        sub: entryWhen(e.created_at) + (note ? " · " + note : ""),
+        glyph: e.type === "payment" ? "₹" : e.type === "reversal" ? "↺" : "✓",
+        dotBg:
+          e.type === "payment"
+            ? "var(--color-success)"
+            : e.type === "reversal"
+              ? "var(--color-accent)"
+              : "var(--color-secondary)",
+        dotInk: e.type === "payment" ? "#FFFFFF" : "var(--color-ink)",
+        amtText: (positive ? "+ " : "− ") + rs(Math.abs(e.amount)),
+        amtColor: positive ? "var(--color-destructive)" : "var(--color-success)",
+      };
+    }),
   };
 
-  const submitPay = () => {
-    if (payNum <= 0) {
-      update({ sheet: null });
+  const submitPay = async () => {
+    if (payNum <= 0 || !cust.id) {
+      update({ sheet: null, pay: "" });
       return;
     }
-    const before = s.customers;
-    update({
-      sheet: null,
-      pay: "",
-      customers: s.customers.map((c) =>
-        c.id === cust.id
-          ? {
-              ...c,
-              due: Math.max(0, c.due - payNum),
-              entries: [{ t: "pay" as const, label: "Paisa mila", sub: "Abhi · Cash", amt: payNum }, ...c.entries],
-            }
-          : c
-      ),
+    const customerId = cust.id;
+    update({ sheet: null, pay: "" });
+    const { data: created, error } = await supabase
+      .from("ledger_entries")
+      .insert({
+        customer_id: customerId,
+        type: "payment",
+        amount: -payNum,
+        note: "Paisa mila - Cash",
+      })
+      .select("id")
+      .single();
+    if (error || !created) {
+      console.error("[khata] payment insert failed:", error?.message);
+      showToast("Paisa likha nahi jaa saka, dobara try karein", () => {});
+      return;
+    }
+    await Promise.all([fetchLiveCustomers(), fetchCustomerDetail(customerId)]);
+    const paymentId = created.id;
+    showToast(rs(payNum) + " khate mein likh diya", () => {
+      void (async () => {
+        const { error: undoError } = await supabase.from("ledger_entries").insert({
+          customer_id: customerId,
+          type: "reversal",
+          amount: payNum,
+          note: "Payment undo",
+          reverses_entry_id: paymentId,
+        });
+        if (undoError) console.error("[khata] payment reversal failed:", undoError.message);
+        await Promise.all([fetchLiveCustomers(), fetchCustomerDetail(customerId)]);
+      })();
     });
-    showToast(rs(payNum) + " khate mein likh diya", () => update({ customers: before }));
   };
 
-  const submitCustomer = () => {
+  const submitCustomer = async () => {
     const name = s.newName.trim();
     if (!name) {
       update({ sheet: null });
       return;
     }
-    const before = s.customers;
-    const nc: Customer = {
-      id: "n" + Date.now(),
-      name,
-      phone: s.newPhone.trim() || "—",
-      due: 0,
-      entries: [{ t: "pay", label: "Khata khula", sub: "Abhi · Naya grahak", amt: 0 }],
-    };
-    update({ sheet: null, customers: s.customers.concat([nc]) });
-    showToast(name + " khate mein jud gaye", () => update({ customers: before }));
+    const phone = s.newPhone.trim() || "—";
+    update({ sheet: null });
+    const { data: created, error } = await supabase
+      .from("customers")
+      .insert({ name, phone })
+      .select("id")
+      .single();
+    if (error || !created) {
+      const message =
+        error?.code === "23505"
+          ? "Yeh phone number pehle se kisi grahak ka hai"
+          : "Grahak add nahi ho paaya: " + (error?.message ?? "unknown error");
+      console.error("[khata] customer insert failed:", error?.message);
+      showToast(message, () => {});
+      return;
+    }
+    await fetchLiveCustomers();
+    const newId = created.id;
+    showToast(name + " khate mein jud gaye", () => {
+      void supabase
+        .from("customers")
+        .delete()
+        .eq("id", newId)
+        .then(() => fetchLiveCustomers());
+    });
   };
 
-  const submitPref = () => {
+  const submitPref = async () => {
     const catName = s.prefCat.trim();
+    const pickId = s.prefPickId;
     const pick = s.prefPick;
-    if (!catName || !pick) {
+    if (!catName || pickId === null) {
       update({ sheet: null });
       return;
     }
-    if (s.prefFromOrder && s.prefKey) {
-      const beforeR = s.resolved;
-      const beforeC = s.customers;
-      const prefKey = s.prefKey;
-      update({
-        sheet: null,
-        resolved: { ...s.resolved, [prefKey]: pick },
-        customers: s.customers.map((c) => {
-          if (c.name !== s.prefCustName) return c;
-          const prefs = (c.prefs || []).slice();
-          const at = prefs.findIndex((p) => p.cat === catName);
-          const row = { cat: catName, item: pick, note: s.prefNote.trim() || "Order se yaad rakha" };
-          if (at >= 0) prefs[at] = row;
-          else prefs.push(row);
-          return { ...c, prefs };
-        }),
-      });
-      showToast(pick + " lag gaya, pasand mein yaad rakha", () => update({ resolved: beforeR, customers: beforeC }));
+
+    if (s.prefFromOrder && s.prefOrderItemId !== null) {
+      const orderItemId = s.prefOrderItemId;
+      const orderCustomerId = s.prefOrderCustomerId;
+      update({ sheet: null });
+      await resolveOrderItem(
+        orderItemId,
+        pickId,
+        catName,
+        orderCustomerId,
+        pick + " lag gaya, pasand mein yaad rakha",
+      );
       return;
     }
-    const before = s.customers;
-    update({
-      sheet: null,
-      customers: s.customers.map((c) => {
-        if (c.id !== cust.id) return c;
-        const prefs = (c.prefs || []).slice();
-        const row = { cat: catName, item: pick, note: s.prefNote.trim() || "" };
-        if (s.prefEditIdx !== null) prefs[s.prefEditIdx] = row;
-        else prefs.push(row);
-        return { ...c, prefs };
-      }),
+
+    const customerId = cust.id;
+    if (!customerId) {
+      update({ sheet: null });
+      return;
+    }
+    const note = s.prefNote.trim();
+    const existingRow = s.prefRowId !== null ? livePrefs.find((p) => p.id === s.prefRowId) : undefined;
+    update({ sheet: null });
+
+    const undoPref = await upsertPreference(customerId, catName, pickId, note);
+    if (!undoPref) {
+      showToast("Pasand save nahi ho paayi, dobara try karein", () => {});
+      return;
+    }
+
+    // Editing a pref into a different category: the upsert above wrote the row
+    // for the new category, so the old row must go — one pref per category.
+    let undoOldRow: (() => Promise<void>) | null = null;
+    if (existingRow && existingRow.cat !== catName) {
+      const { error } = await supabase.from("customer_preferences").delete().eq("id", existingRow.id);
+      if (error) console.error("[prefs] old row delete failed:", error.message);
+      else
+        undoOldRow = async () => {
+          const { error: undoError } = await supabase.from("customer_preferences").insert({
+            customer_id: customerId,
+            catalog_item_id: existingRow.catalogItemId,
+            note: existingRow.note,
+          });
+          if (undoError) console.error("[prefs] old row restore failed:", undoError.message);
+        };
+    }
+
+    await fetchCustomerDetail(customerId);
+    showToast(catName + ": " + pick + " yaad rakh liya", () => {
+      void (async () => {
+        await undoPref();
+        if (undoOldRow) await undoOldRow();
+        await fetchCustomerDetail(customerId);
+      })();
     });
-    showToast(catName + ": " + pick + " yaad rakh liya", () => update({ customers: before }));
   };
 
-  const catChips = Object.keys(CATALOG).map((k) => ({
+  const catalogByCategory = new Map<string, CatalogItemRow[]>();
+  for (const it of liveCatalogItems) {
+    if (!it.is_active) continue;
+    const list = catalogByCategory.get(it.category) ?? [];
+    list.push(it);
+    catalogByCategory.set(it.category, list);
+  }
+  for (const list of catalogByCategory.values()) list.sort((a, b) => b.times_ordered - a.times_ordered);
+
+  const catChips = Array.from(catalogByCategory.keys()).map((k) => ({
     n: k,
     bg: s.prefCat === k ? "var(--color-secondary)" : "var(--color-card)",
     ink: s.prefCat === k ? "var(--color-primary)" : "var(--color-ink)",
     border: s.prefCat === k ? "var(--color-primary)" : "var(--color-warm-border)",
-    onPick: () => update({ prefCat: k, prefPick: "" }),
+    onPick: () => update({ prefCat: k, prefPick: "", prefPickId: null }),
   }));
-  const choiceList = CATALOG[s.prefCat] || [];
+  const choiceList = catalogByCategory.get(s.prefCat) ?? [];
   const noChoices = choiceList.length === 0;
   const prefChoices = choiceList.map((c, i) => {
-    const picked = s.prefPick === c.n || s.prefPick.indexOf(c.n) === 0;
+    const picked = s.prefPickId === c.id;
     return {
-      n: c.n,
-      sub: c.sub,
+      n: c.name,
+      sub: rs(c.price) + " · " + c.unit,
       picked,
       isTop: i === 0,
       bg: picked ? "oklch(0.95 0.04 155 / 0.25)" : "var(--color-card)",
       border: picked ? "var(--color-success)" : "var(--color-warm-border)",
       dotBorder: picked ? "var(--color-success)" : "oklch(0.72 0.06 90)",
       dotBg: picked ? "var(--color-success)" : "var(--color-card)",
-      onPick: () => update({ prefPick: c.n }),
+      onPick: () => update({ prefPick: c.name, prefPickId: c.id }),
     };
   });
 
