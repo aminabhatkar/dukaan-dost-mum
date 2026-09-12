@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Customer, Order, RateItem, Screen, Sheet } from "./types";
 import { CATALOG, CUSTOMERS, ITEMS, ORDERS } from "./data";
+import { supabase } from "@/integrations/supabase/client";
 import { rs, telHref } from "./utils";
 import { Shell } from "./components/Shell";
 import { BottomNav } from "./components/BottomNav";
@@ -95,6 +96,7 @@ function loadState(): AppState {
 export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
+  const [liveNewOrders, setLiveNewOrders] = useState<Order[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -128,7 +130,119 @@ export default function DukaanDostApp() {
     update((prev) => ({ orders: prev.orders.map((o) => (o.id === id ? { ...o, state: st } : o)) }));
   };
 
-  const news = s.orders.filter((o) => o.state === "new");
+  const fetchLiveNewOrders = async () => {
+    const { data: orderRows, error: ordersError } = await supabase
+      .from("orders")
+      .select("id, customer_id, total, created_at")
+      .eq("state", "new")
+      .order("created_at", { ascending: false });
+    if (ordersError || !orderRows) {
+      console.error("[orders] fetch failed:", ordersError?.message);
+      return;
+    }
+    if (orderRows.length === 0) {
+      setLiveNewOrders([]);
+      return;
+    }
+
+    const orderIds = orderRows.map((o) => o.id);
+    const customerIds = Array.from(
+      new Set(orderRows.map((o) => o.customer_id).filter((v): v is number => v !== null)),
+    );
+
+    const [{ data: itemRows }, { data: customerRows }] = await Promise.all([
+      supabase
+        .from("order_items")
+        .select(
+          "order_id, spoken_text, quantity_text, is_vague, guessed_catalog_item_id, guess_reason, resolved_catalog_item_id",
+        )
+        .in("order_id", orderIds),
+      supabase.from("customers").select("id, name, phone").in("id", customerIds),
+    ]);
+
+    const catalogIds = Array.from(
+      new Set(
+        (itemRows ?? [])
+          .flatMap((it) => [it.resolved_catalog_item_id, it.guessed_catalog_item_id])
+          .filter((v): v is number => v !== null),
+      ),
+    );
+    const { data: catalogRows } = catalogIds.length
+      ? await supabase.from("catalog_items").select("id, name, unit").in("id", catalogIds)
+      : { data: [] as { id: number; name: string; unit: string }[] };
+
+    const catalogById = new Map((catalogRows ?? []).map((c) => [c.id, c]));
+    const customerById = new Map((customerRows ?? []).map((c) => [c.id, c]));
+
+    const mapped: Order[] = orderRows.map((o) => {
+      const customer = o.customer_id ? customerById.get(o.customer_id) : undefined;
+      const items = (itemRows ?? [])
+        .filter((it) => it.order_id === o.id)
+        .map((it) => {
+          if (it.resolved_catalog_item_id) {
+            const cat = catalogById.get(it.resolved_catalog_item_id);
+            return { n: cat?.name ?? it.spoken_text, q: it.quantity_text };
+          }
+          if (it.guessed_catalog_item_id) {
+            const cat = catalogById.get(it.guessed_catalog_item_id);
+            return {
+              n: `"${it.spoken_text}"`,
+              q: it.quantity_text,
+              vague: true,
+              ...(cat ? { guess: `${cat.name} (${cat.unit})` } : {}),
+              ...(it.guess_reason ? { guessWhy: it.guess_reason } : {}),
+            };
+          }
+          return { n: `"${it.spoken_text}" (samajh nahi aaya)`, q: it.quantity_text };
+        });
+
+      return {
+        id: `live-${o.id}`,
+        cust: customer?.name ?? "Grahak",
+        phone: customer?.phone ?? "",
+        time: new Date(o.created_at).toLocaleTimeString("en-IN", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        state: "new" as const,
+        items,
+        total: Number(o.total),
+      };
+    });
+
+    setLiveNewOrders(mapped);
+  };
+
+  useEffect(() => {
+    if (!hydrated) return;
+    fetchLiveNewOrders();
+    const interval = setInterval(fetchLiveNewOrders, 20000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  const acceptLiveOrder = async (liveId: string) => {
+    const dbId = Number(liveId.replace("live-", ""));
+    const { error } = await supabase
+      .from("orders")
+      .update({ state: "accepted", accepted_at: new Date().toISOString() })
+      .eq("id", dbId);
+    if (error) {
+      console.error("[orders] accept failed:", error.message);
+      showToast("Order accept nahi ho paaya, dobara try karein", () => {});
+      return;
+    }
+    setLiveNewOrders((prev) => prev.filter((o) => o.id !== liveId));
+    showToast("Order pakka ho gaya", () => {
+      void supabase
+        .from("orders")
+        .update({ state: "new", accepted_at: null })
+        .eq("id", dbId)
+        .then(() => fetchLiveNewOrders());
+    });
+  };
+
   const pending = s.orders.filter((o) => o.state === "accepted");
   const delivered = s.orders.filter((o) => o.state === "delivered");
   const summary = (items: { n: string }[]) => items.map((i) => i.n.split(" (")[0]).join(", ");
@@ -146,7 +260,7 @@ export default function DukaanDostApp() {
   const totalDue = s.customers.reduce((a, c) => a + c.due, 0);
   const payNum = parseInt(s.pay || "0", 10) || 0;
 
-  const newOrders: NewOrderView[] = news.map((o) => ({
+  const newOrders: NewOrderView[] = liveNewOrders.map((o) => ({
     id: o.id,
     cust: o.cust,
     phone: o.phone,
@@ -164,33 +278,17 @@ export default function DukaanDostApp() {
         fixedText: fixed ? fixed + " — pakka" : "",
         guess: it.guess || "",
         guessWhy: it.guessWhy || "",
-        onConfirm: () => {
-          update((prev) => ({ resolved: { ...prev.resolved, [key]: it.guess! } }));
-          showToast(it.guess + " lag gaya", () =>
-            update((prev) => {
-              const r = { ...prev.resolved };
-              delete r[key];
-              return { resolved: r };
-            })
-          );
-        },
+        // Confirming/changing a guessed item against the live order isn't wired yet —
+        // that belongs to the customer-preferences pass, not this one. Say so honestly
+        // instead of silently updating local state that resets on refresh.
+        onConfirm: () =>
+          showToast("Yeh abhi live orders ke liye save nahi hota — agle update mein aayega", () => {}),
         onChange: () =>
-          update({
-            sheet: "pref",
-            prefKey: key,
-            prefEditIdx: null,
-            prefFromOrder: true,
-            prefCustName: o.cust,
-            prefCat: it.cat || "",
-            prefPick: it.guess || "",
-            prefNote: "",
-            prefPhrase: it.n,
-          }),
+          showToast("Yeh abhi live orders ke liye save nahi hota — agle update mein aayega", () => {}),
       };
     }),
     onAccept: () => {
-      setOrderState(o.id, "accepted");
-      showToast(o.cust + " ka order pakka hua", () => setOrderState(o.id, "new"));
+      void acceptLiveOrder(o.id);
     },
   }));
 
@@ -422,11 +520,11 @@ export default function DukaanDostApp() {
 
       {s.screen === "home" && (
         <HomeScreen
-          todayCount={s.orders.length}
+          todayCount={s.orders.length + liveNewOrders.length}
           pendingCount={pending.length}
-          newCount={news.length}
-          hasNew={news.length > 0}
-          newCountLabel={news.length ? news.length + " order dekhna baaki" : "Sab dekh liye"}
+          newCount={liveNewOrders.length}
+          hasNew={liveNewOrders.length > 0}
+          newCountLabel={liveNewOrders.length ? liveNewOrders.length + " order dekhna baaki" : "Sab dekh liye"}
           trackingSub={pending.length + " delivery baaki, " + delivered.length + " ho gayi"}
           khataSub={s.customers.length + " grahak · " + rs(totalDue) + " baaki"}
           ratesSub={s.items.length + " item ke rate saved"}
