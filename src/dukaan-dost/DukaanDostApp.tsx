@@ -105,6 +105,18 @@ function loadState(): AppState {
   }
 }
 
+type LiveTrackingOrder = {
+  dbId: number;
+  customerId: number | null;
+  state: "accepted" | "delivered";
+  cust: string;
+  summary: string;
+  total: number;
+  acceptedAt: string | null;
+  deliveredAt: string | null;
+};
+
+
 export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
