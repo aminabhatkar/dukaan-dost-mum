@@ -189,8 +189,8 @@ export default function DukaanDostApp() {
               n: `"${it.spoken_text}"`,
               q: it.quantity_text,
               vague: true,
-              guess: cat ? `${cat.name} (${cat.unit})` : undefined,
-              guessWhy: it.guess_reason ?? undefined,
+              ...(cat ? { guess: `${cat.name} (${cat.unit})` } : {}),
+              ...(it.guess_reason ? { guessWhy: it.guess_reason } : {}),
             };
           }
           return { n: `"${it.spoken_text}" (samajh nahi aaya)`, q: it.quantity_text };
