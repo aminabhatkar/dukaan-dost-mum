@@ -348,6 +348,42 @@ export type Database = {
           },
         ]
       }
+      telegram_links: {
+        Row: {
+          chat_id: string
+          created_at: string
+          customer_id: number
+          phone: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          customer_id: number
+          phone: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          customer_id?: number
+          phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_links_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customer_balances"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "telegram_links_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       customer_balances: {
