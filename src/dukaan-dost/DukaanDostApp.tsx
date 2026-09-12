@@ -27,6 +27,16 @@ interface ToastState {
   undo: () => void;
 }
 
+interface CatalogItemRow {
+  id: number;
+  category: string;
+  name: string;
+  unit: string;
+  price: number;
+  is_active: boolean;
+  times_ordered: number;
+}
+
 interface AppState {
   screen: Screen;
   orders: Order[];
@@ -39,6 +49,7 @@ interface AppState {
   items: RateItem[];
   editId: string | null;
   itName: string;
+  itCategory: string;
   itUnit: string;
   itPrice: string;
   uploadName: string | null;
@@ -66,6 +77,7 @@ const initialState: AppState = {
   items: ITEMS,
   editId: null,
   itName: "",
+  itCategory: "",
   itUnit: "",
   itPrice: "",
   uploadName: null,
@@ -97,6 +109,7 @@ export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
   const [liveNewOrders, setLiveNewOrders] = useState<Order[]>([]);
+  const [liveCatalogItems, setLiveCatalogItems] = useState<CatalogItemRow[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -240,6 +253,81 @@ export default function DukaanDostApp() {
         .update({ state: "new", accepted_at: null })
         .eq("id", dbId)
         .then(() => fetchLiveNewOrders());
+    });
+  };
+
+  const fetchLiveCatalogItems = async () => {
+    const { data, error } = await supabase
+      .from("catalog_items")
+      .select("id, category, name, unit, price, is_active, times_ordered")
+      .order("category", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) {
+      console.error("[rates] fetch failed:", error.message);
+      return;
+    }
+    setLiveCatalogItems((data ?? []).map((r) => ({ ...r, price: Number(r.price) })));
+  };
+
+  useEffect(() => {
+    if (!hydrated) return;
+    fetchLiveCatalogItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  const submitItem = async () => {
+    const name = s.itName.trim();
+    const category = s.itCategory.trim();
+    const price = parseInt(s.itPrice || "0", 10) || 0;
+    const unit = s.itUnit.trim() || "per nag";
+    if (!name || !category) {
+      update({ sheet: null });
+      return;
+    }
+
+    if (s.editId) {
+      const dbId = Number(s.editId);
+      const before = liveCatalogItems.find((i) => i.id === dbId);
+      update({ sheet: null });
+      const { error } = await supabase.from("catalog_items").update({ name, unit, price, category }).eq("id", dbId);
+      if (error) {
+        console.error("[rates] update failed:", error.message);
+        showToast("Rate update nahi ho paaya: " + error.message, () => {});
+        return;
+      }
+      await fetchLiveCatalogItems();
+      showToast(name + " ka rate " + rs(price) + " kar diya", () => {
+        if (!before) return;
+        void supabase
+          .from("catalog_items")
+          .update({ name: before.name, unit: before.unit, price: before.price, category: before.category })
+          .eq("id", dbId)
+          .then(() => fetchLiveCatalogItems());
+      });
+      return;
+    }
+
+    const { data: created, error } = await supabase
+      .from("catalog_items")
+      .insert({ name, unit, price, category, is_active: true })
+      .select("id")
+      .single();
+    update({ sheet: null });
+    if (error || !created) {
+      const message =
+        error?.code === "23505" ? name + " is category mein pehle se hai" : "Item add nahi ho paaya: " + (error?.message ?? "unknown error");
+      console.error("[rates] insert failed:", error?.message);
+      showToast(message, () => {});
+      return;
+    }
+    await fetchLiveCatalogItems();
+    const newId = created.id;
+    showToast(name + " list mein jud gaya", () => {
+      void supabase
+        .from("catalog_items")
+        .delete()
+        .eq("id", newId)
+        .then(() => fetchLiveCatalogItems());
     });
   };
 
@@ -403,24 +491,6 @@ export default function DukaanDostApp() {
     showToast(name + " khate mein jud gaye", () => update({ customers: before }));
   };
 
-  const submitItem = () => {
-    const name = s.itName.trim();
-    const price = parseInt(s.itPrice || "0", 10) || 0;
-    if (!name) {
-      update({ sheet: null });
-      return;
-    }
-    const before = s.items;
-    const unit = s.itUnit.trim() || "per nag";
-    if (s.editId) {
-      update({ sheet: null, items: s.items.map((i) => (i.id === s.editId ? { ...i, n: name, u: unit, p: price } : i)) });
-      showToast(name + " ka rate " + rs(price) + " kar diya", () => update({ items: before }));
-    } else {
-      update({ sheet: null, items: s.items.concat([{ id: "ni" + Date.now(), n: name, u: unit, p: price }]) });
-      showToast(name + " list mein jud gaya", () => update({ items: before }));
-    }
-  };
-
   const submitPref = () => {
     const catName = s.prefCat.trim();
     const pick = s.prefPick;
@@ -497,11 +567,19 @@ export default function DukaanDostApp() {
     },
   }));
 
-  const rateItems = s.items.map((i) => ({
-    n: i.n,
-    u: i.u,
-    priceText: rs(i.p),
-    onEdit: () => update({ sheet: "item", editId: i.id, itName: i.n, itUnit: i.u, itPrice: String(i.p) }),
+  const rateItems = liveCatalogItems.map((i) => ({
+    n: i.name,
+    u: i.unit,
+    priceText: rs(i.price),
+    onEdit: () =>
+      update({
+        sheet: "item",
+        editId: String(i.id),
+        itName: i.name,
+        itCategory: i.category,
+        itUnit: i.unit,
+        itPrice: String(i.price),
+      }),
   }));
 
   if (!hydrated) {
@@ -527,7 +605,7 @@ export default function DukaanDostApp() {
           newCountLabel={liveNewOrders.length ? liveNewOrders.length + " order dekhna baaki" : "Sab dekh liye"}
           trackingSub={pending.length + " delivery baaki, " + delivered.length + " ho gayi"}
           khataSub={s.customers.length + " grahak · " + rs(totalDue) + " baaki"}
-          ratesSub={s.items.length + " item ke rate saved"}
+          ratesSub={liveCatalogItems.length + " item ke rate saved"}
           onLogout={() => go("login")}
           onGoOrders={() => go("orders")}
           onGoTracking={() => go("tracking")}
@@ -586,9 +664,9 @@ export default function DukaanDostApp() {
             update({ uploadName: f.name + " — padh liya" });
             showToast("List mil gayi. Rate check kar lijiye.", () => update({ uploadName: null }));
           }}
-          itemCount={s.items.length}
+          itemCount={liveCatalogItems.length}
           rateItems={rateItems}
-          onOpenAddItem={() => update({ sheet: "item", editId: null, itName: "", itUnit: "", itPrice: "" })}
+          onOpenAddItem={() => update({ sheet: "item", editId: null, itName: "", itCategory: "", itUnit: "", itPrice: "" })}
           onGoHome={() => go("home")}
         />
       )}
@@ -618,9 +696,11 @@ export default function DukaanDostApp() {
         <ItemSheet
           title={s.editId ? "Rate Badlein" : "Naya Item Jodiye"}
           itName={s.itName}
+          itCategory={s.itCategory}
           itUnit={s.itUnit}
           itPrice={s.itPrice}
           onItNameChange={(v) => update({ itName: v })}
+          onItCategoryChange={(v) => update({ itCategory: v })}
           onItUnitChange={(v) => update({ itUnit: v })}
           onItPriceChange={(v) => update({ itPrice: v.replace(/[^0-9]/g, "") })}
           onClose={() => update({ sheet: null })}
