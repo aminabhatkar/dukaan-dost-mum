@@ -297,17 +297,20 @@ export default function DukaanDostApp() {
           };
         });
 
+      const createdAt = parseUtc(o.created_at);
       return {
         id: `live-${o.id}`,
         dbId: o.id,
         customerId: o.customer_id,
         cust: customer?.name ?? "Grahak",
         phone: customer?.phone ?? "",
-        time: new Date(o.created_at).toLocaleTimeString("en-IN", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
+        time: createdAt
+          ? createdAt.toLocaleTimeString("en-IN", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "",
         items,
         total: Number(o.total),
       };
@@ -410,8 +413,11 @@ export default function DukaanDostApp() {
       };
     });
 
-    const byDateDesc = (a: string | null, b: string | null) =>
-      new Date(b ?? 0).getTime() - new Date(a ?? 0).getTime();
+    const byDateDesc = (a: string | null, b: string | null) => {
+      const da = parseUtc(a);
+      const db = parseUtc(b);
+      return (db?.getTime() ?? 0) - (da?.getTime() ?? 0);
+    };
 
     setLiveTracking({
       accepted: mapped
@@ -836,8 +842,14 @@ export default function DukaanDostApp() {
   const totalDue = liveCustomers.reduce((a, c) => a + c.balance, 0);
   const payNum = parseInt(s.pay || "0", 10) || 0;
 
+  const parseUtc = (iso: string | null | undefined): Date | null => {
+    if (!iso) return null;
+    return new Date(/[Zz]$/.test(iso) ? iso : iso + "Z");
+  };
+
   const entryWhen = (iso: string) => {
-    const d = new Date(/[Zz]$/.test(iso) ? iso : iso + "Z");
+    const d = parseUtc(iso);
+    if (!d) return "";
     const now = new Date();
     const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
     const sameDay =
@@ -1144,7 +1156,7 @@ export default function DukaanDostApp() {
       border: picked ? "var(--color-success)" : "var(--color-warm-border)",
       dotBorder: picked ? "var(--color-success)" : "oklch(0.72 0.06 90)",
       dotBg: picked ? "var(--color-success)" : "var(--color-card)",
-      onPick: () => update({ prefPick: c.name, prefPickId: c.id }),
+      onPick: () => update({ prefCat: c.category, prefPick: c.name, prefPickId: c.id }),
     };
   });
 
@@ -1311,7 +1323,7 @@ export default function DukaanDostApp() {
           title={s.prefFromOrder ? "Yeh kaunsa saman?" : s.prefRowId !== null ? "Pasand Badlein" : "Pasand Jodiye"}
           subtitle={s.prefFromOrder ? s.prefCustName + " ne kaha: " + s.prefPhrase : s.prefCustName + " ke liye"}
           prefCat={s.prefCat}
-          onPrefCatChange={(v) => update({ prefCat: v, prefPick: "" })}
+          onPrefCatChange={() => {}}
           catChips={catChips}
           noChoices={noChoices}
           prefChoices={prefChoices}
