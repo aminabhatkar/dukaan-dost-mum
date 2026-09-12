@@ -156,6 +156,13 @@ export async function parseTranscript(
       let guess: { id: number; name: string; price: number; times_ordered: number } | null = null;
       let reason: string | null = null;
 
+      // Only trust the fuzzy match's category as a signal when it clears a
+      // minimum similarity floor — a near-zero score (an out-of-catalog word,
+      // or English text before synonym substitution) is noise, not a real
+      // category hint, and using it anyway silently substitutes an unrelated
+      // item at a specific price instead of correctly flagging "not understood."
+      const categorySignal = best && best.score >= MIN_CATEGORY_SIGNAL ? best.category : undefined;
+
       if (customerId) {
         const { data: prefs } = await supabaseAdmin
           .from('customer_preferences')
@@ -165,13 +172,6 @@ export async function parseTranscript(
         const prefRows = (prefs ?? []) as unknown as Array<{
           catalog_items: { id: number; name: string; category: string; price: number; times_ordered: number } | null;
         }>;
-
-        // Only trust the fuzzy match's category as a signal when it clears a
-        // minimum similarity floor — a near-zero score (an out-of-catalog word,
-        // or English text before synonym substitution) is noise, not a real
-        // category hint, and using it anyway silently substitutes an unrelated
-        // item at a specific price instead of correctly flagging "not understood."
-        const categorySignal = best && best.score >= MIN_CATEGORY_SIGNAL ? best.category : undefined;
         const pick =
           prefRows.find((p) => p.catalog_items && categorySignal && p.catalog_items.category === categorySignal) ??
           prefRows.find((p) => p.catalog_items && cleaned.toLowerCase().includes(p.catalog_items.name.split(' ')[0]!.toLowerCase()));
