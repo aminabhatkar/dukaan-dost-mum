@@ -605,7 +605,7 @@ export default function DukaanDostApp() {
           newCountLabel={liveNewOrders.length ? liveNewOrders.length + " order dekhna baaki" : "Sab dekh liye"}
           trackingSub={pending.length + " delivery baaki, " + delivered.length + " ho gayi"}
           khataSub={s.customers.length + " grahak · " + rs(totalDue) + " baaki"}
-          ratesSub={s.items.length + " item ke rate saved"}
+          ratesSub={liveCatalogItems.length + " item ke rate saved"}
           onLogout={() => go("login")}
           onGoOrders={() => go("orders")}
           onGoTracking={() => go("tracking")}
@@ -664,9 +664,9 @@ export default function DukaanDostApp() {
             update({ uploadName: f.name + " — padh liya" });
             showToast("List mil gayi. Rate check kar lijiye.", () => update({ uploadName: null }));
           }}
-          itemCount={s.items.length}
+          itemCount={liveCatalogItems.length}
           rateItems={rateItems}
-          onOpenAddItem={() => update({ sheet: "item", editId: null, itName: "", itUnit: "", itPrice: "" })}
+          onOpenAddItem={() => update({ sheet: "item", editId: null, itName: "", itCategory: "", itUnit: "", itPrice: "" })}
           onGoHome={() => go("home")}
         />
       )}
@@ -696,9 +696,11 @@ export default function DukaanDostApp() {
         <ItemSheet
           title={s.editId ? "Rate Badlein" : "Naya Item Jodiye"}
           itName={s.itName}
+          itCategory={s.itCategory}
           itUnit={s.itUnit}
           itPrice={s.itPrice}
           onItNameChange={(v) => update({ itName: v })}
+          onItCategoryChange={(v) => update({ itCategory: v })}
           onItUnitChange={(v) => update({ itUnit: v })}
           onItPriceChange={(v) => update({ itPrice: v.replace(/[^0-9]/g, "") })}
           onClose={() => update({ sheet: null })}
