@@ -590,6 +590,186 @@ export default function DukaanDostApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
 
+  const fetchLiveCustomers = async () => {
+    const [{ data: customerRows, error: custError }, { data: balanceRows, error: balError }] =
+      await Promise.all([
+        supabase.from("customers").select("id, name, phone").order("name", { ascending: true }),
+        supabase.from("customer_balances").select("customer_id, balance"),
+      ]);
+    if (custError || !customerRows) {
+      console.error("[khata] customers fetch failed:", custError?.message);
+      return;
+    }
+    if (balError) console.error("[khata] balances fetch failed:", balError.message);
+    const balanceById = new Map(
+      (balanceRows ?? [])
+        .filter((b): b is { customer_id: number; balance: number | null } => b.customer_id !== null)
+        .map((b) => [b.customer_id, Number(b.balance ?? 0)]),
+    );
+    setLiveCustomers(
+      customerRows.map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        balance: balanceById.get(c.id) ?? 0,
+      })),
+    );
+  };
+
+  useEffect(() => {
+    if (!hydrated) return;
+    fetchLiveCustomers();
+    const interval = setInterval(fetchLiveCustomers, 20000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  const fetchCustomerDetail = async (customerId: number) => {
+    const [{ data: entryRows, error: entryError }, { data: prefRows, error: prefError }] =
+      await Promise.all([
+        supabase
+          .from("ledger_entries")
+          .select("id, type, amount, note, created_at")
+          .eq("customer_id", customerId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("customer_preferences")
+          .select("id, note, catalog_item_id, catalog_items!inner(id, category, name)")
+          .eq("customer_id", customerId),
+      ]);
+    if (entryError) console.error("[khata] ledger fetch failed:", entryError.message);
+    else
+      setLiveEntries(
+        (entryRows ?? []).map((e) => ({
+          id: e.id,
+          type: e.type,
+          amount: Number(e.amount),
+          note: e.note,
+          created_at: e.created_at,
+        })),
+      );
+
+    if (prefError) console.error("[khata] prefs fetch failed:", prefError.message);
+    else
+      setLivePrefs(
+        (prefRows ?? []).map((p) => ({
+          id: p.id,
+          catalogItemId: p.catalog_item_id,
+          cat: p.catalog_items?.category ?? "",
+          item: p.catalog_items?.name ?? "",
+          note: p.note ?? "",
+        })),
+      );
+  };
+
+  const openCustomerId = s.custId ? Number(s.custId) : null;
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (openCustomerId === null || Number.isNaN(openCustomerId)) {
+      setLiveEntries([]);
+      setLivePrefs([]);
+      return;
+    }
+    fetchCustomerDetail(openCustomerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, openCustomerId]);
+
+  // customer_preferences has no DB uniqueness on (customer, category) — the
+  // one-preference-per-category rule is enforced here, in the app layer.
+  const upsertPreference = async (
+    customerId: number,
+    category: string,
+    catalogItemId: number,
+    note: string,
+  ): Promise<(() => Promise<void>) | null> => {
+    const { data: existingRows, error: lookupError } = await supabase
+      .from("customer_preferences")
+      .select("id, note, catalog_item_id, catalog_items!inner(category)")
+      .eq("customer_id", customerId)
+      .eq("catalog_items.category", category)
+      .limit(1);
+    if (lookupError) {
+      console.error("[prefs] lookup failed:", lookupError.message);
+      return null;
+    }
+    const existing = (existingRows ?? [])[0];
+
+    if (existing) {
+      const before = { catalog_item_id: existing.catalog_item_id, note: existing.note };
+      const rowId = existing.id;
+      const { error } = await supabase
+        .from("customer_preferences")
+        .update({ catalog_item_id: catalogItemId, note })
+        .eq("id", rowId);
+      if (error) {
+        console.error("[prefs] update failed:", error.message);
+        return null;
+      }
+      return async () => {
+        const { error: undoError } = await supabase
+          .from("customer_preferences")
+          .update(before)
+          .eq("id", rowId);
+        if (undoError) console.error("[prefs] undo update failed:", undoError.message);
+      };
+    }
+
+    const { data: created, error } = await supabase
+      .from("customer_preferences")
+      .insert({ customer_id: customerId, catalog_item_id: catalogItemId, note })
+      .select("id")
+      .single();
+    if (error || !created) {
+      console.error("[prefs] insert failed:", error?.message);
+      return null;
+    }
+    const newId = created.id;
+    return async () => {
+      const { error: undoError } = await supabase
+        .from("customer_preferences")
+        .delete()
+        .eq("id", newId);
+      if (undoError) console.error("[prefs] undo insert failed:", undoError.message);
+    };
+  };
+
+  const resolveOrderItem = async (
+    orderItemId: number,
+    catalogItemId: number,
+    category: string | null,
+    customerId: number | null,
+    label: string,
+  ) => {
+    const { error } = await supabase
+      .from("order_items")
+      .update({ resolved_catalog_item_id: catalogItemId })
+      .eq("id", orderItemId);
+    if (error) {
+      console.error("[orders] resolve item failed:", error.message);
+      showToast("Save nahi ho paaya, dobara try karein", () => {});
+      return;
+    }
+    const undoPref =
+      customerId !== null && category
+        ? await upsertPreference(customerId, category, catalogItemId, "Order se yaad rakha")
+        : null;
+    await fetchLiveNewOrders();
+    if (openCustomerId !== null) await fetchCustomerDetail(openCustomerId);
+    showToast(label, () => {
+      void (async () => {
+        const { error: undoError } = await supabase
+          .from("order_items")
+          .update({ resolved_catalog_item_id: null })
+          .eq("id", orderItemId);
+        if (undoError) console.error("[orders] undo resolve failed:", undoError.message);
+        if (undoPref) await undoPref();
+        await fetchLiveNewOrders();
+        if (openCustomerId !== null) await fetchCustomerDetail(openCustomerId);
+      })();
+    });
+  };
+
   const submitItem = async () => {
     const name = s.itName.trim();
     const category = s.itCategory.trim();
