@@ -55,11 +55,14 @@ interface AppState {
   uploadName: string | null;
   resolved: Record<string, string>;
   prefKey: string | null;
-  prefEditIdx: number | null;
+  prefRowId: number | null;
+  prefOrderItemId: number | null;
+  prefOrderCustomerId: number | null;
   prefFromOrder: boolean;
   prefCustName: string;
   prefCat: string;
   prefPick: string;
+  prefPickId: number | null;
   prefNote: string;
   prefPhrase: string;
   toast: ToastState | null;
@@ -83,11 +86,14 @@ const initialState: AppState = {
   uploadName: null,
   resolved: {},
   prefKey: null,
-  prefEditIdx: null,
+  prefRowId: null,
+  prefOrderItemId: null,
+  prefOrderCustomerId: null,
   prefFromOrder: false,
   prefCustName: "",
   prefCat: "",
   prefPick: "",
+  prefPickId: null,
   prefNote: "",
   prefPhrase: "",
   toast: null,
