@@ -863,9 +863,10 @@ export default function DukaanDostApp() {
 
       {s.screen === "tracking" && (
         <TrackingScreen
-          pendingCount={pending.length}
+          pendingCount={liveTracking.accepted.length}
           pendingOrders={pendingOrders}
-          deliveredCount={delivered.length}
+          deliveredCount={liveTracking.delivered.length}
+
           deliveredOrders={deliveredOrders}
           onGoHome={() => go("home")}
         />
