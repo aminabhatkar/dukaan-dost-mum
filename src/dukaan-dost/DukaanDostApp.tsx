@@ -109,6 +109,11 @@ export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
   const [hydrated, setHydrated] = useState(false);
   const [liveNewOrders, setLiveNewOrders] = useState<Order[]>([]);
+  const [liveTracking, setLiveTracking] = useState<{
+    accepted: LiveTrackingOrder[];
+    delivered: LiveTrackingOrder[];
+  }>({ accepted: [], delivered: [] });
+
   const [liveCatalogItems, setLiveCatalogItems] = useState<CatalogItemRow[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
