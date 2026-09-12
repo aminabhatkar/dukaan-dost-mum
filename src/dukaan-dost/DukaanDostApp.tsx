@@ -122,6 +122,47 @@ type LiveTrackingOrder = {
   deliveredAt: string | null;
 };
 
+type LiveNewOrderItem = {
+  itemId: number;
+  n: string;
+  q: string;
+  vague: boolean;
+  guess: string;
+  guessWhy: string;
+  guessedId: number | null;
+  category: string | null;
+};
+
+type LiveNewOrder = {
+  id: string;
+  dbId: number;
+  customerId: number | null;
+  cust: string;
+  phone: string;
+  time: string;
+  total: number;
+  items: LiveNewOrderItem[];
+};
+
+type LiveCustomer = { id: number; name: string; phone: string; balance: number };
+
+type LedgerRow = {
+  id: number;
+  type: string;
+  amount: number;
+  note: string | null;
+  created_at: string;
+};
+
+type PrefRow = {
+  id: number;
+  catalogItemId: number;
+  cat: string;
+  item: string;
+  note: string;
+};
+
+
 
 export default function DukaanDostApp() {
   const [s, setS] = useState<AppState>(initialState);
