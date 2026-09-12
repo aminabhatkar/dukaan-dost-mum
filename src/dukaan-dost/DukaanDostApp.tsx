@@ -841,11 +841,14 @@ export default function DukaanDostApp() {
       {s.screen === "home" && (
         <HomeScreen
           todayCount={s.orders.length + liveNewOrders.length}
-          pendingCount={pending.length}
+          pendingCount={liveTracking.accepted.length}
           newCount={liveNewOrders.length}
           hasNew={liveNewOrders.length > 0}
           newCountLabel={liveNewOrders.length ? liveNewOrders.length + " order dekhna baaki" : "Sab dekh liye"}
-          trackingSub={pending.length + " delivery baaki, " + delivered.length + " ho gayi"}
+          trackingSub={
+            liveTracking.accepted.length + " delivery baaki, " + liveTracking.delivered.length + " ho gayi"
+          }
+
           khataSub={s.customers.length + " grahak · " + rs(totalDue) + " baaki"}
           ratesSub={liveCatalogItems.length + " item ke rate saved"}
           onLogout={() => go("login")}
