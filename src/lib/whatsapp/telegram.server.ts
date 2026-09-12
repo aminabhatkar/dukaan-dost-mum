@@ -3,7 +3,7 @@
 // URL/body — no separate auth-header dance, and no Trial-tier gating.
 
 function botToken(): string {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const token = process.env['TELEGRAM_BOT_TOKEN'];
   if (!token) {
     throw new Error('TELEGRAM_BOT_TOKEN is not set.');
   }

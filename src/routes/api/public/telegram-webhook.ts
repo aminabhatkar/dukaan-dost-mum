@@ -118,9 +118,9 @@ export const Route = createFileRoute('/api/public/telegram-webhook')({
           const voice = message.voice ?? message.audio;
           if (voice) {
             const fileUrl = await getTelegramFileUrl(voice.file_id);
-            form.NumMedia = '1';
-            form.MediaContentType0 = voice.mime_type ?? 'audio/ogg';
-            form.MediaUrl0 = fileUrl;
+            form['NumMedia'] = '1';
+            form['MediaContentType0'] = voice.mime_type ?? 'audio/ogg';
+            form['MediaUrl0'] = fileUrl;
           }
 
           const channel: ChannelAdapter = {
