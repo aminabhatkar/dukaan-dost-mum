@@ -491,24 +491,6 @@ export default function DukaanDostApp() {
     showToast(name + " khate mein jud gaye", () => update({ customers: before }));
   };
 
-  const submitItem = () => {
-    const name = s.itName.trim();
-    const price = parseInt(s.itPrice || "0", 10) || 0;
-    if (!name) {
-      update({ sheet: null });
-      return;
-    }
-    const before = s.items;
-    const unit = s.itUnit.trim() || "per nag";
-    if (s.editId) {
-      update({ sheet: null, items: s.items.map((i) => (i.id === s.editId ? { ...i, n: name, u: unit, p: price } : i)) });
-      showToast(name + " ka rate " + rs(price) + " kar diya", () => update({ items: before }));
-    } else {
-      update({ sheet: null, items: s.items.concat([{ id: "ni" + Date.now(), n: name, u: unit, p: price }]) });
-      showToast(name + " list mein jud gaya", () => update({ items: before }));
-    }
-  };
-
   const submitPref = () => {
     const catName = s.prefCat.trim();
     const pick = s.prefPick;
@@ -585,11 +567,19 @@ export default function DukaanDostApp() {
     },
   }));
 
-  const rateItems = s.items.map((i) => ({
-    n: i.n,
-    u: i.u,
-    priceText: rs(i.p),
-    onEdit: () => update({ sheet: "item", editId: i.id, itName: i.n, itUnit: i.u, itPrice: String(i.p) }),
+  const rateItems = liveCatalogItems.map((i) => ({
+    n: i.name,
+    u: i.unit,
+    priceText: rs(i.price),
+    onEdit: () =>
+      update({
+        sheet: "item",
+        editId: String(i.id),
+        itName: i.name,
+        itCategory: i.category,
+        itUnit: i.unit,
+        itPrice: String(i.price),
+      }),
   }));
 
   if (!hydrated) {
