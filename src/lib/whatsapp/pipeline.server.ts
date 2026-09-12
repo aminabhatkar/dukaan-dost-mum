@@ -87,6 +87,35 @@ interface CatalogMatch {
 
 const GOOD_MATCH = 0.42;
 
+const MIN_CATEGORY_SIGNAL = 0.25;
+
+// English/brand words a customer might type or say that have no direct match
+// against the catalog's Hindi/Hinglish item names — mapped before fuzzy
+// matching so they resolve into the right category instead of scoring as noise.
+const SYNONYMS: Record<string, string> = {
+  milk: 'doodh',
+  sugar: 'chini',
+  flour: 'atta',
+  wheat: 'atta',
+  curd: 'dahi',
+  yogurt: 'dahi',
+  yoghurt: 'dahi',
+  egg: 'anda',
+  eggs: 'anda',
+  butter: 'makhan',
+  salt: 'namak',
+  oil: 'tel',
+};
+
+function applySynonyms(text: string): string {
+  let result = text;
+  for (const [en, hi] of Object.entries(SYNONYMS)) {
+    result = result.replace(new RegExp(`\\b${en}\\b`, 'gi'), hi);
+  }
+  return result;
+}
+
+
 export async function parseTranscript(
   transcript: string,
   customerId: number | null,
@@ -98,9 +127,10 @@ export async function parseTranscript(
   for (const phrase of phrases) {
     const { quantityText, multiplier, rest } = extractQuantity(phrase);
     const cleaned = rest.replace(/["'“”‘’]/g, '').trim();
+    const matchPhrase = applySynonyms(cleaned);
 
     const { data, error } = await supabaseAdmin.rpc('match_catalog_item' as never, {
-      _phrase: cleaned,
+      _phrase: matchPhrase,
     } as never);
     if (error) console.error('[pipeline] match_catalog_item failed:', error.message);
 
@@ -109,7 +139,7 @@ export async function parseTranscript(
 
     let item: ParsedItem;
 
-    if (best && (best.score >= GOOD_MATCH || best.name.toLowerCase() === cleaned.toLowerCase())) {
+    if (best && (best.score >= GOOD_MATCH || best.name.toLowerCase() === matchPhrase.toLowerCase())) {
       const lineTotal = Number(best.price) * multiplier;
       item = {
         spoken_text: phrase.trim(),
@@ -136,9 +166,14 @@ export async function parseTranscript(
           catalog_items: { id: number; name: string; category: string; price: number; times_ordered: number } | null;
         }>;
 
-        const category = best?.category;
+        // Only trust the fuzzy match's category as a signal when it clears a
+        // minimum similarity floor — a near-zero score (an out-of-catalog word,
+        // or English text before synonym substitution) is noise, not a real
+        // category hint, and using it anyway silently substitutes an unrelated
+        // item at a specific price instead of correctly flagging "not understood."
+        const categorySignal = best && best.score >= MIN_CATEGORY_SIGNAL ? best.category : undefined;
         const pick =
-          prefRows.find((p) => p.catalog_items && category && p.catalog_items.category === category) ??
+          prefRows.find((p) => p.catalog_items && categorySignal && p.catalog_items.category === categorySignal) ??
           prefRows.find((p) => p.catalog_items && cleaned.toLowerCase().includes(p.catalog_items.name.split(' ')[0]!.toLowerCase()));
 
         if (pick?.catalog_items) {
@@ -147,11 +182,11 @@ export async function parseTranscript(
         }
       }
 
-      if (!guess && best) {
+      if (!guess && categorySignal) {
         const { data: popular } = await supabaseAdmin
           .from('catalog_items')
           .select('id, name, price, times_ordered')
-          .eq('category', best.category)
+          .eq('category', categorySignal)
           .eq('is_active', true)
           .order('times_ordered', { ascending: false })
           .limit(1);
