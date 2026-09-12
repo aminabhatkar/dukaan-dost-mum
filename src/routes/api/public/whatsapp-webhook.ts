@@ -1,4 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { downloadTwilioMedia, sendWhatsAppMessage } from '@/lib/whatsapp/twilio.server';
+import type { ChannelAdapter } from '@/lib/whatsapp/pipeline.server';
+
+const twilioChannel: ChannelAdapter = {
+  send: sendWhatsAppMessage,
+  downloadMedia: downloadTwilioMedia,
+};
 
 export const Route = createFileRoute('/api/public/whatsapp-webhook')({
   server: {
@@ -20,7 +27,7 @@ export const Route = createFileRoute('/api/public/whatsapp-webhook')({
 
         try {
           const { handleInboundMessage } = await import('@/lib/whatsapp/pipeline.server');
-          await handleInboundMessage(form);
+          await handleInboundMessage(form, twilioChannel);
         } catch (err) {
           // Always 200 back to Twilio so it doesn't retry-storm; log for debugging.
           console.error('[whatsapp-webhook] processing failed:', err);

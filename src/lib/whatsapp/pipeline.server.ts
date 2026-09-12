@@ -1,8 +1,14 @@
-// DukaanDost WhatsApp ordering pipeline (v1, heuristic parsing — no LLM).
+// DukaanDost ordering pipeline (v1, heuristic parsing — no LLM).
+// Channel-agnostic: callers pass a ChannelAdapter so this file has no direct
+// dependency on Twilio or Telegram.
 
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
-import { downloadTwilioMedia, sendWhatsAppMessage } from './twilio.server';
 import { transcribeAudio } from './sarvam.server';
+
+export interface ChannelAdapter {
+  send: (to: string, body: string) => Promise<void>;
+  downloadMedia: (url: string) => Promise<ArrayBuffer>;
+}
 
 export interface ParsedItem {
   spoken_text: string;
@@ -96,7 +102,7 @@ export async function parseTranscript(
     const { data, error } = await supabaseAdmin.rpc('match_catalog_item' as never, {
       _phrase: cleaned,
     } as never);
-    if (error) console.error('[whatsapp] match_catalog_item failed:', error.message);
+    if (error) console.error('[pipeline] match_catalog_item failed:', error.message);
 
     const matches = (data ?? []) as unknown as CatalogMatch[];
     const best = matches[0];
@@ -176,8 +182,16 @@ export async function parseTranscript(
   return { items, total };
 }
 
-export async function findOrCreateCustomer(whatsappFrom: string): Promise<number | null> {
-  const digits = last10(whatsappFrom);
+/**
+ * Find or create a customer by a phone-ish identifier (last 10 digits are the match key).
+ * `defaultName` lets each channel label auto-created customers distinctly
+ * (e.g. "WhatsApp Grahak" vs "Telegram Grahak") without changing the matching logic.
+ */
+export async function findOrCreateCustomer(
+  phoneish: string,
+  defaultName = 'WhatsApp Grahak',
+): Promise<number | null> {
+  const digits = last10(phoneish);
   if (!digits) return null;
 
   const { data: customers } = await supabaseAdmin.from('customers').select('id, phone');
@@ -189,11 +203,11 @@ export async function findOrCreateCustomer(whatsappFrom: string): Promise<number
   const pretty = `${digits.slice(0, 5)} ${digits.slice(5)}`;
   const { data: created, error } = await supabaseAdmin
     .from('customers')
-    .insert({ name: 'WhatsApp Grahak', phone: pretty })
+    .insert({ name: defaultName, phone: pretty })
     .select('id')
     .single();
   if (error) {
-    console.error('[whatsapp] customer create failed:', error.message);
+    console.error('[pipeline] customer create failed:', error.message);
     return null;
   }
   return created.id;
@@ -235,8 +249,8 @@ export async function catalogNames(items: ParsedItem[]): Promise<Map<number, str
   return map;
 }
 
-/** Main entry: process one inbound Twilio WhatsApp message. */
-export async function handleInboundMessage(form: Record<string, string>): Promise<void> {
+/** Main entry: process one inbound message, already normalized into Twilio's field shape. */
+export async function handleInboundMessage(form: Record<string, string>, channel: ChannelAdapter): Promise<void> {
   const from = form['From'] ?? '';
   const messageSid = form['MessageSid'] ?? form['SmsMessageSid'] ?? '';
   const body = (form['Body'] ?? '').trim();
@@ -244,14 +258,14 @@ export async function handleInboundMessage(form: Record<string, string>): Promis
 
   if (!from) return;
 
-  // Idempotency: this exact Twilio message already produced a pending order or an order.
+  // Idempotency: this exact inbound message already produced a pending order or an order.
   if (messageSid) {
     const [{ data: dupPending }, { data: dupOrder }] = await Promise.all([
       supabaseAdmin.from('pending_orders').select('id').eq('twilio_message_sid' as never, messageSid).limit(1),
       supabaseAdmin.from('orders').select('id').eq('twilio_message_sid' as never, messageSid).limit(1),
     ]);
     if ((dupPending ?? []).length > 0 || (dupOrder ?? []).length > 0) {
-      console.log(`[whatsapp] duplicate MessageSid ${messageSid} ignored`);
+      console.log(`[pipeline] duplicate message id ${messageSid} ignored`);
       return;
     }
   }
@@ -271,7 +285,7 @@ export async function handleInboundMessage(form: Record<string, string>): Promis
 
   if (pending) {
     if (body && isConfirm(body)) {
-      await confirmPendingOrder(pending, from, messageSid);
+      await confirmPendingOrder(pending, from, messageSid, channel);
       return;
     }
     if (body && isCancel(body)) {
@@ -279,13 +293,13 @@ export async function handleInboundMessage(form: Record<string, string>): Promis
         .from('pending_orders')
         .update({ status: 'cancelled', updated_at: new Date().toISOString() })
         .eq('id', pending.id);
-      await sendWhatsAppMessage(from, 'Theek hai, order cancel kar diya. Kabhi bhi naya order bhej sakte hain.');
+      await channel.send(from, 'Theek hai, order cancel kar diya. Kabhi bhi naya order bhej sakte hain.');
       return;
     }
     // Anything else = correction: re-parse and replace the pending order.
-    const transcript = await getTranscript(form, body, numMedia);
+    const transcript = await getTranscript(form, body, numMedia, channel);
     if (!transcript) {
-      await sendWhatsAppMessage(from, 'Maaf kijiye, samajh nahi aaya. Order dobara bhejein ya *HAAN* / *NAHI* likhein.');
+      await channel.send(from, 'Maaf kijiye, samajh nahi aaya. Order dobara bhejein ya *HAAN* / *NAHI* likhein.');
       return;
     }
     const { items, total } = await parseTranscript(transcript, pending.customer_id ?? customerId);
@@ -300,20 +314,20 @@ export async function handleInboundMessage(form: Record<string, string>): Promis
       })
       .eq('id', pending.id);
     const names = await catalogNames(items);
-    await sendWhatsAppMessage(from, `Order badal diya.\n\n${buildConfirmationCard(items, total, names)}`);
+    await channel.send(from, `Order badal diya.\n\n${buildConfirmationCard(items, total, names)}`);
     return;
   }
 
   // New order
-  const transcript = await getTranscript(form, body, numMedia);
+  const transcript = await getTranscript(form, body, numMedia, channel);
   if (!transcript) {
-    await sendWhatsAppMessage(from, 'Namaste! Apna order likh kar ya voice note bhej kar bhejein.');
+    await channel.send(from, 'Namaste! Apna order likh kar ya voice note bhej kar bhejein.');
     return;
   }
 
   const { items, total } = await parseTranscript(transcript, customerId);
   if (items.length === 0) {
-    await sendWhatsAppMessage(from, 'Order samajh nahi aaya. Kripya item aur maatra bhejein, jaise: "2 litre doodh, 1 kg atta".');
+    await channel.send(from, 'Order samajh nahi aaya. Kripya item aur maatra bhejein, jaise: "2 litre doodh, 1 kg atta".');
     return;
   }
 
@@ -327,22 +341,23 @@ export async function handleInboundMessage(form: Record<string, string>): Promis
     twilio_message_sid: messageSid || null,
   } as never);
   if (error) {
-    // Unique violation on message sid = Twilio retry; stay silent.
+    // Unique violation on message id = provider retry; stay silent.
     if (error.code === '23505') return;
     throw new Error(`pending_orders insert failed: ${error.message}`);
   }
 
   const names = await catalogNames(items);
-  await sendWhatsAppMessage(from, buildConfirmationCard(items, total, names));
+  await channel.send(from, buildConfirmationCard(items, total, names));
 }
 
 async function getTranscript(
   form: Record<string, string>,
   body: string,
   numMedia: number,
+  channel: ChannelAdapter,
 ): Promise<string> {
   if (numMedia > 0 && (form['MediaContentType0'] ?? '').startsWith('audio')) {
-    const audio = await downloadTwilioMedia(form['MediaUrl0']!);
+    const audio = await channel.downloadMedia(form['MediaUrl0']!);
     return await transcribeAudio(audio, form['MediaContentType0']!);
   }
   return body;
@@ -352,6 +367,7 @@ async function confirmPendingOrder(
   pending: { id: number; customer_id: number | null; items: unknown; total: number; whatsapp_from: string },
   from: string,
   messageSid: string,
+  channel: ChannelAdapter,
 ): Promise<void> {
   const customerId = pending.customer_id ?? (await findOrCreateCustomer(from));
   if (!customerId) throw new Error('No customer for pending order confirmation');
@@ -370,7 +386,7 @@ async function confirmPendingOrder(
     .single();
 
   if (orderError) {
-    if (orderError.code === '23505') return; // Twilio retry
+    if (orderError.code === '23505') return; // provider retry
     throw new Error(`order insert failed: ${orderError.message}`);
   }
 
@@ -396,7 +412,7 @@ async function confirmPendingOrder(
 
   // No ledger charge here — the charge is created on delivery, per product spec.
 
-  await sendWhatsAppMessage(
+  await channel.send(
     from,
     `Shukriya! Order confirm ho gaya.\nOrder #${order.id} — ${rs(Number(pending.total))}\nDukaandar taiyaar kar rahe hain.`,
   );
