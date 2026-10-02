@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicParseRateListRouteImport } from './routes/api/public/parse-rate-list'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram-webhook'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicParseRateListRoute = ApiPublicParseRateListRouteImport.update({
+  id: '/api/public/parse-rate-list',
+  path: '/api/public/parse-rate-list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicTelegramWebhookRoute =
@@ -33,35 +39,47 @@ const ApiPublicWhatsappWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/parse-rate-list': typeof ApiPublicParseRateListRoute
   '/api/public/telegram-webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/parse-rate-list': typeof ApiPublicParseRateListRoute
   '/api/public/telegram-webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/parse-rate-list': typeof ApiPublicParseRateListRoute
   '/api/public/telegram-webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/api/public/telegram-webhook' | '/api/public/whatsapp-webhook'
+    | '/'
+    | '/api/public/parse-rate-list'
+    | '/api/public/telegram-webhook'
+    | '/api/public/whatsapp-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/telegram-webhook' | '/api/public/whatsapp-webhook'
+  to:
+    | '/'
+    | '/api/public/parse-rate-list'
+    | '/api/public/telegram-webhook'
+    | '/api/public/whatsapp-webhook'
   id:
     | '__root__'
     | '/'
+    | '/api/public/parse-rate-list'
     | '/api/public/telegram-webhook'
     | '/api/public/whatsapp-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicParseRateListRoute: typeof ApiPublicParseRateListRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
@@ -73,6 +91,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/parse-rate-list': {
+      id: '/api/public/parse-rate-list'
+      path: '/api/public/parse-rate-list'
+      fullPath: '/api/public/parse-rate-list'
+      preLoaderRoute: typeof ApiPublicParseRateListRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/telegram-webhook': {
@@ -94,6 +119,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicParseRateListRoute: ApiPublicParseRateListRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }

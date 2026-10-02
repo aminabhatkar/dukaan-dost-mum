@@ -1270,9 +1270,35 @@ export default function DukaanDostApp() {
         <RateListScreen
           hasUpload={!!s.uploadName}
           uploadName={s.uploadName || ""}
-          onFileChosen={(f) => {
-            update({ uploadName: f.name + " — padh liya" });
-            showToast("List mil gayi. Rate check kar lijiye.", () => update({ uploadName: null }));
+          onFileChosen={async (f) => {
+            update({ uploadName: f.name + " — padh kar raha hoon..." });
+            try {
+              const formData = new FormData();
+              formData.append('file', f);
+              const res = await fetch('/api/public/parse-rate-list', {
+                method: 'POST',
+                body: formData,
+              });
+              const json = await res.json() as { inserted?: number; skipped?: number; total?: number; error?: string };
+              if (!res.ok || json.error) {
+                update({ uploadName: f.name + " — kuch galat hua" });
+                showToast("Image padh nahi paaye: " + (json.error ?? "dobara try karein"), () => update({ uploadName: null }));
+                return;
+              }
+              const { inserted = 0, skipped = 0, total = 0 } = json;
+              update({ uploadName: f.name + " — padh liya ✓" });
+              await fetchLiveCatalogItems();
+              const msg = inserted > 0
+                ? `${inserted} item rate list mein jud gaye${skipped > 0 ? `, ${skipped} pehle se the` : ''}`
+                : skipped > 0
+                  ? `Sab ${skipped} item pehle se rate list mein hain`
+                  : `Image mein koi item nahi mila (total parsed: ${total})`;
+              showToast(msg, () => update({ uploadName: null }));
+            } catch (err) {
+              console.error('[parse-rate-list] client fetch failed:', err);
+              update({ uploadName: f.name + " — kuch galat hua" });
+              showToast("Network error, dobara try karein", () => update({ uploadName: null }));
+            }
           }}
           itemCount={liveCatalogItems.length}
           rateItems={rateItems}
