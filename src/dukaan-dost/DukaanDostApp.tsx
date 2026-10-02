@@ -814,6 +814,34 @@ export default function DukaanDostApp() {
       .insert({ name, unit, price, category, is_active: true })
       .select("id")
       .single();
+    if (error && error.code === "23505") {
+      // The item exists but is soft-deleted (hidden) — bring it back instead of failing.
+      const { data: hidden } = await supabase
+        .from("catalog_items")
+        .select("id")
+        .eq("category", category)
+        .eq("name", name)
+        .maybeSingle();
+      if (hidden) {
+        const { error: reviveError } = await supabase.from("catalog_items").update({ unit, price, is_active: true }).eq("id", hidden.id);
+        update({ sheet: null });
+        if (reviveError) {
+          console.error("[rates] revive failed:", reviveError.message);
+          showToast("Item add nahi ho paaya: " + reviveError.message, () => {});
+          return;
+        }
+        await fetchLiveCatalogItems();
+        const revivedId = hidden.id;
+        showToast(name + " list mein wapas jud gaya", () => {
+          void supabase
+            .from("catalog_items")
+            .update({ is_active: false })
+            .eq("id", revivedId)
+            .then(() => fetchLiveCatalogItems());
+        });
+        return;
+      }
+    }
     update({ sheet: null });
     if (error || !created) {
       const message =
