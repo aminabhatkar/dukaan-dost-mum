@@ -11,6 +11,8 @@ import { findOrCreateCustomer, type ChannelAdapter } from '@/lib/whatsapp/pipeli
 interface TelegramContact {
   phone_number: string;
   user_id?: number;
+  first_name?: string;
+  last_name?: string;
 }
 
 interface TelegramMediaFile {
@@ -72,7 +74,20 @@ export const Route = createFileRoute('/api/public/telegram-webhook')({
               return jsonOk();
             }
 
-            const customerId = await findOrCreateCustomer(message.contact.phone_number, 'Telegram Grahak');
+            const contactName = [message.contact.first_name, message.contact.last_name]
+              .filter(Boolean).join(' ').trim() || 'Telegram Grahak';
+            const customerId = await findOrCreateCustomer(message.contact.phone_number, contactName);
+            // If the customer already existed with a placeholder name, update it to the real name
+            if (customerId && contactName !== 'Telegram Grahak' && contactName !== 'WhatsApp Grahak') {
+              const { data: existing } = await supabaseAdmin
+                .from('customers')
+                .select('id, name')
+                .eq('id', customerId)
+                .single();
+              if (existing && (existing.name === 'Telegram Grahak' || existing.name === 'WhatsApp Grahak')) {
+                await supabaseAdmin.from('customers').update({ name: contactName }).eq('id', customerId);
+              }
+            }
             if (!customerId) {
               await sendTelegramMessage(chatId, 'Phone number samajh nahi aaya. Dobara try karein.');
               return jsonOk();
