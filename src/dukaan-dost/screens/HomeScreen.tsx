@@ -71,9 +71,7 @@ export function HomeScreen({
 
       <div className="flex flex-col gap-4 p-5">
         <button onClick={onGoOrders} style={tileStyle}>
-          <span style={iconWrap("var(--color-primary)")}>
-            <IconBoxTile size={32} />
-          </span>
+          <span style={{fontSize:44, lineHeight:1}}>📦</span>
           <span className="min-w-0 flex-1">
             <span className="block text-[25px] font-extrabold tracking-tight">Naye Orders</span>
             <span className="mt-[3px] block text-[17px] font-semibold text-ink-subtle">{newCountLabel}</span>
@@ -86,9 +84,7 @@ export function HomeScreen({
         </button>
 
         <button onClick={onGoTracking} style={tileStyle}>
-          <span style={iconWrap("var(--color-success)")}>
-            <IconScooter size={34} color="#FFFFFF" strokeWidth={2.1} dotR={2.6} />
-          </span>
+          <span style={{fontSize:44, lineHeight:1}}>🛵</span>
           <span className="min-w-0 flex-1">
             <span className="block text-[25px] font-extrabold tracking-tight">Order Tracking</span>
             <span className="mt-[3px] block text-[17px] font-semibold text-ink-subtle">{trackingSub}</span>
@@ -96,9 +92,7 @@ export function HomeScreen({
         </button>
 
         <button onClick={onGoKhata} style={tileStyle}>
-          <span style={iconWrap("var(--color-destructive)")}>
-            <IconBookTile size={32} />
-          </span>
+          <span style={{fontSize:44, lineHeight:1}}>📒</span>
           <span className="min-w-0 flex-1">
             <span className="block text-[25px] font-extrabold tracking-tight">Grahak Khata</span>
             <span className="mt-[3px] block text-[17px] font-semibold text-ink-subtle">{khataSub}</span>
@@ -106,9 +100,7 @@ export function HomeScreen({
         </button>
 
         <button onClick={onGoRates} style={tileStyle}>
-          <span style={iconWrap("var(--color-warning)")}>
-            <IconTag size={32} />
-          </span>
+          <span style={{fontSize:44, lineHeight:1}}>🏷️</span>
           <span className="min-w-0 flex-1">
             <span className="block text-[25px] font-extrabold tracking-tight">Rate List</span>
             <span className="mt-[3px] block text-[17px] font-semibold text-ink-subtle">{ratesSub}</span>
