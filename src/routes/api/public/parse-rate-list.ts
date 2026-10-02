@@ -65,30 +65,41 @@ Example output:
 
         let parsedItems: ParsedItem[] = [];
         try {
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [
-                    { text: prompt },
-                    { inlineData: { mimeType, data: imageBase64 } },
-                  ],
-                }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-              }),
-            }
-          );
+          // Older Gemini models are being retired for new keys; try newer
+          // models first and fall back on 404 (retired) / 503 (overloaded).
+          const models = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite-preview'];
+          let geminiData: GeminiResponse | null = null;
+          for (const model of models) {
+            const geminiRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{
+                    parts: [
+                      { text: prompt },
+                      { inlineData: { mimeType, data: imageBase64 } },
+                    ],
+                  }],
+                  generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
+                }),
+              }
+            );
 
-          if (!geminiRes.ok) {
+            if (geminiRes.ok) {
+              geminiData = await geminiRes.json() as GeminiResponse;
+              break;
+            }
             const errText = await geminiRes.text();
-            console.error('[parse-rate-list] Gemini API error:', geminiRes.status, errText);
+            console.error(`[parse-rate-list] Gemini ${model} error:`, geminiRes.status, errText.slice(0, 300));
+            if (geminiRes.status === 503 || geminiRes.status === 404) continue;
             return jsonReply({ error: 'Gemini API error: ' + geminiRes.status }, 502);
           }
 
-          const geminiData = await geminiRes.json() as GeminiResponse;
+          if (!geminiData) {
+            return jsonReply({ error: 'Gemini API overloaded, dobara try karein' }, 502);
+          }
           const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
           console.log('[parse-rate-list] Gemini raw output:', rawText.slice(0, 300));
 
