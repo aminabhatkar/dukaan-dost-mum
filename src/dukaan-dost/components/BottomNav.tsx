@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Screen } from "../types";
-import { IconBoxNav, IconBookNav, IconHomeNav, IconScooter, IconTag } from "./icons";
+
 
 function navStyle(active: boolean) {
   return active
@@ -39,23 +39,23 @@ export function BottomNav({ screen, onGo }: { screen: Screen; onGo: (s: Screen) 
         style={{ boxShadow: "0 -4px 18px rgba(72,55,32,.12)" }}
       >
         <button onClick={() => onGo("home")} style={btnStyle(home.bg, home.ink)}>
-          <IconHomeNav />
+          <span style={{fontSize:26}}>🏠</span>
           <span className="text-[13px] font-extrabold">Ghar</span>
         </button>
         <button onClick={() => onGo("orders")} style={btnStyle(orders.bg, orders.ink)}>
-          <IconBoxNav />
+          <span style={{fontSize:26}}>📦</span>
           <span className="text-[13px] font-extrabold">Orders</span>
         </button>
         <button onClick={() => onGo("tracking")} style={btnStyle(tracking.bg, tracking.ink)}>
-          <IconScooter size={27} color="currentColor" strokeWidth={2.2} dotR={2.4} />
+          <span style={{fontSize:26}}>🛵</span>
           <span className="text-[13px] font-extrabold">Delivery</span>
         </button>
         <button onClick={() => onGo("khata")} style={btnStyle(khata.bg, khata.ink)}>
-          <IconBookNav />
+          <span style={{fontSize:26}}>📒</span>
           <span className="text-[13px] font-extrabold">Khata</span>
         </button>
         <button onClick={() => onGo("rates")} style={btnStyle(rates.bg, rates.ink)}>
-          <IconTag size={26} color="currentColor" />
+          <span style={{fontSize:26}}>🏷️</span>
           <span className="text-[13px] font-extrabold">Rate List</span>
         </button>
       </div>
