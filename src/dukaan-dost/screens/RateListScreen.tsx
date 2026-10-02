@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { TopBar } from "../components/TopBar";
 import { IconCheck, IconImage, IconPlus, IconUpload } from "../components/icons";
 
@@ -7,6 +7,7 @@ export interface RateItemView {
   u: string;
   priceText: string;
   onEdit: () => void;
+  onDelete: () => void;
 }
 
 export function RateListScreen({
@@ -16,6 +17,7 @@ export function RateListScreen({
   itemCount,
   rateItems,
   onOpenAddItem,
+  onClearAll,
   onGoHome,
 }: {
   hasUpload: boolean;
@@ -24,9 +26,11 @@ export function RateListScreen({
   itemCount: number;
   rateItems: RateItemView[];
   onOpenAddItem: () => void;
+  onClearAll: () => void;
   onGoHome: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   return (
     <div className="pb-[196px]">
@@ -72,7 +76,32 @@ export function RateListScreen({
 
       <div className="flex items-baseline justify-between gap-3 px-4 pt-5.5">
         <span className="text-[22px] font-extrabold">Dukaan ke Rate ({itemCount})</span>
-        <span className="text-[15px] font-bold text-ink-subtle">Aaj update</span>
+        {itemCount > 0 && (
+          confirmClear ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-bold text-ink-subtle">Pakka?</span>
+              <button
+                onClick={() => { setConfirmClear(false); onClearAll(); }}
+                className="cursor-pointer rounded-[8px] bg-destructive px-3 py-1.5 text-[13px] font-extrabold text-destructive-foreground"
+              >
+                Haan, hatao
+              </button>
+              <button
+                onClick={() => setConfirmClear(false)}
+                className="cursor-pointer rounded-[8px] border-2 border-warm-border bg-secondary px-3 py-1.5 text-[13px] font-extrabold text-ink"
+              >
+                Nahi
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="cursor-pointer text-[14px] font-bold text-destructive"
+            >
+              Sab hatao
+            </button>
+          )
+        )}
       </div>
 
       <div className="flex flex-col gap-2.5 px-4 pt-3">
@@ -92,6 +121,12 @@ export function RateListScreen({
               className="flex-none cursor-pointer rounded-[11px] border-2 border-warm-border bg-secondary px-3.5 py-3 text-base font-extrabold text-ink"
             >
               Badlein
+            </button>
+            <button
+              onClick={it.onDelete}
+              className="flex-none cursor-pointer rounded-[11px] border-2 border-warm-border bg-card px-3.5 py-3 text-base font-extrabold text-destructive"
+            >
+              ✕
             </button>
           </div>
         ))}

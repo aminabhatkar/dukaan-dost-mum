@@ -1183,6 +1183,27 @@ export default function DukaanDostApp() {
         itUnit: i.unit,
         itPrice: String(i.price),
       }),
+    onDelete: () => {
+      void (async () => {
+        const { error } = await supabase
+          .from("catalog_items")
+          .update({ is_active: false })
+          .eq("id", i.id);
+        if (error) {
+          console.error("[rates] soft-delete failed:", error.message);
+          showToast("Item hata nahi paaye, dobara try karein", () => {});
+          return;
+        }
+        await fetchLiveCatalogItems();
+        showToast(i.name + " list se hata diya", () => {
+          void supabase
+            .from("catalog_items")
+            .update({ is_active: true })
+            .eq("id", i.id)
+            .then(() => fetchLiveCatalogItems());
+        });
+      })();
+    },
   }));
 
   if (!hydrated) {
