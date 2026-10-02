@@ -581,6 +581,7 @@ export default function DukaanDostApp() {
     const { data, error } = await supabase
       .from("catalog_items")
       .select("id, category, name, unit, price, is_active, times_ordered")
+      .eq("is_active", true)
       .order("category", { ascending: true })
       .order("name", { ascending: true });
     if (error) {
