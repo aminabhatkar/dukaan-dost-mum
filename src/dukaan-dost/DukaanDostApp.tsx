@@ -1017,6 +1017,20 @@ export default function DukaanDostApp() {
         amtColor: positive ? "var(--color-destructive)" : "var(--color-success)",
       };
     }),
+    onEditName: (newName: string) => {
+      void (async () => {
+        const id = cust.id;
+        if (!id) return;
+        const { error } = await supabase.from('customers').update({ name: newName }).eq('id', id);
+        if (error) {
+          console.error('[khata] name update failed:', error.message);
+          showToast('Naam save nahi ho paaya, dobara try karein', () => {});
+          return;
+        }
+        await Promise.all([fetchLiveCustomers(), fetchCustomerDetail(id)]);
+        showToast(newName + ' — naam update ho gaya', () => {});
+      })();
+    },
   };
 
   const submitPay = async () => {
