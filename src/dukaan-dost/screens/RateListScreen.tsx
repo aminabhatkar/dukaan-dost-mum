@@ -48,7 +48,7 @@ export function RateListScreen({
               const f = e.target.files && e.target.files[0];
               if (f) onFileChosen(f);
             }}
-            accept="image/*,.csv,.xlsx"
+            accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,.csv,.xlsx"
             className="hidden"
           />
           <button

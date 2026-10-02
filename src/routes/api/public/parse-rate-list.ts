@@ -41,6 +41,12 @@ export const Route = createFileRoute('/api/public/parse-rate-list')({
           const file = formData.get('file') as File | null;
           if (!file) return jsonReply({ error: 'No file provided' }, 400);
           mimeType = file.type || 'image/jpeg';
+          const supported = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic'];
+          if (!supported.includes(mimeType.toLowerCase())) {
+            return jsonReply({
+              error: `Yeh format (${mimeType || 'unknown'}) support nahi hai. JPEG, PNG, ya WebP mein photo bhejein.`,
+            }, 415);
+          }
           const arrayBuffer = await file.arrayBuffer();
           imageBase64 = Buffer.from(arrayBuffer).toString('base64');
         } catch (err) {
