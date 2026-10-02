@@ -90,6 +90,30 @@ export const Route = createFileRoute('/api/public/telegram-webhook')({
             return jsonOk();
           }
 
+          // /rates command — reply with an inline button that opens the catalog as a Telegram Web App
+          if (message.text && /^\/(rates|rate|ratelist)|rate list|rates dikhao|rate dikhao/i.test(message.text.trim())) {
+            const catalogUrl = 'https://dukaan-dost-mum.lovable.app/catalog';
+            const res = await fetch(`https://api.telegram.org/bot${process.env['TELEGRAM_BOT_TOKEN']}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: '🛒 *Rehana Store — Aaj ke Rate*\nNeeche button dabaaiye aur poori rate list dekhein:',
+                parse_mode: 'Markdown',
+                reply_markup: {
+                  inline_keyboard: [[
+                    {
+                      text: '📋 Rate List Dekhein',
+                      web_app: { url: catalogUrl },
+                    },
+                  ]],
+                },
+              }),
+            });
+            if (!res.ok) console.error('[telegram] /rates reply failed:', res.status, await res.text());
+            return jsonOk();
+          }
+
           // Step 2: is this chat already linked to a known phone/customer?
           const { data: linkRows } = await supabaseAdmin
             .from('telegram_links')
