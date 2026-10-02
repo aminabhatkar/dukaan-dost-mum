@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { IconBookTile, IconBoxTile, IconScooter, IconTag } from "../components/icons";
+
 
 export function HomeScreen({
   todayCount,
@@ -43,16 +43,6 @@ export function HomeScreen({
     boxShadow: "0 3px 10px rgba(72,55,32,.14)",
     color: "var(--color-ink)",
   };
-  const iconWrap = (bg: string): CSSProperties => ({
-    flex: "none",
-    width: 60,
-    height: 60,
-    borderRadius: 14,
-    background: bg,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  });
 
   return (
     <div className="pb-28">
