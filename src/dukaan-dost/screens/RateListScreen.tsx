@@ -84,7 +84,7 @@ export function RateListScreen({
                 onClick={() => { setConfirmClear(false); onClearAll(); }}
                 className="cursor-pointer rounded-[8px] bg-destructive px-3 py-1.5 text-[13px] font-extrabold text-destructive-foreground"
               >
-                Haan, hatao
+                Haan
               </button>
               <button
                 onClick={() => setConfirmClear(false)}
