@@ -581,6 +581,7 @@ export default function DukaanDostApp() {
     const { data, error } = await supabase
       .from("catalog_items")
       .select("id, category, name, unit, price, is_active, times_ordered")
+      .eq("is_active", true)
       .order("category", { ascending: true })
       .order("name", { ascending: true });
     if (error) {
@@ -813,6 +814,34 @@ export default function DukaanDostApp() {
       .insert({ name, unit, price, category, is_active: true })
       .select("id")
       .single();
+    if (error && error.code === "23505") {
+      // The item exists but is soft-deleted (hidden) — bring it back instead of failing.
+      const { data: hidden } = await supabase
+        .from("catalog_items")
+        .select("id")
+        .eq("category", category)
+        .eq("name", name)
+        .maybeSingle();
+      if (hidden) {
+        const { error: reviveError } = await supabase.from("catalog_items").update({ unit, price, is_active: true }).eq("id", hidden.id);
+        update({ sheet: null });
+        if (reviveError) {
+          console.error("[rates] revive failed:", reviveError.message);
+          showToast("Item add nahi ho paaya: " + reviveError.message, () => {});
+          return;
+        }
+        await fetchLiveCatalogItems();
+        const revivedId = hidden.id;
+        showToast(name + " list mein wapas jud gaya", () => {
+          void supabase
+            .from("catalog_items")
+            .update({ is_active: false })
+            .eq("id", revivedId)
+            .then(() => fetchLiveCatalogItems());
+        });
+        return;
+      }
+    }
     update({ sheet: null });
     if (error || !created) {
       const message =
@@ -1183,6 +1212,27 @@ export default function DukaanDostApp() {
         itUnit: i.unit,
         itPrice: String(i.price),
       }),
+    onDelete: () => {
+      void (async () => {
+        const { error } = await supabase
+          .from("catalog_items")
+          .update({ is_active: false })
+          .eq("id", i.id);
+        if (error) {
+          console.error("[rates] soft-delete failed:", error.message);
+          showToast("Item hata nahi paaye, dobara try karein", () => {});
+          return;
+        }
+        await fetchLiveCatalogItems();
+        showToast(i.name + " list se hata diya", () => {
+          void supabase
+            .from("catalog_items")
+            .update({ is_active: true })
+            .eq("id", i.id)
+            .then(() => fetchLiveCatalogItems());
+        });
+      })();
+    },
   }));
 
   if (!hydrated) {
@@ -1303,6 +1353,29 @@ export default function DukaanDostApp() {
           itemCount={liveCatalogItems.length}
           rateItems={rateItems}
           onOpenAddItem={() => update({ sheet: "item", editId: null, itName: "", itCategory: "", itUnit: "", itPrice: "" })}
+          onClearAll={() => {
+            void (async () => {
+              const ids = liveCatalogItems.map((i) => i.id);
+              if (ids.length === 0) return;
+              const { error } = await supabase
+                .from("catalog_items")
+                .update({ is_active: false })
+                .in("id", ids);
+              if (error) {
+                console.error("[rates] clear-all failed:", error.message);
+                showToast("List saaf nahi ho paayi, dobara try karein", () => {});
+                return;
+              }
+              await fetchLiveCatalogItems();
+              showToast("Poori rate list saaf ho gayi", () => {
+                void supabase
+                  .from("catalog_items")
+                  .update({ is_active: true })
+                  .in("id", ids)
+                  .then(() => fetchLiveCatalogItems());
+              });
+            })();
+          }}
           onGoHome={() => go("home")}
         />
       )}
