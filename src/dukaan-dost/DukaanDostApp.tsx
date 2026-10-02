@@ -1324,6 +1324,29 @@ export default function DukaanDostApp() {
           itemCount={liveCatalogItems.length}
           rateItems={rateItems}
           onOpenAddItem={() => update({ sheet: "item", editId: null, itName: "", itCategory: "", itUnit: "", itPrice: "" })}
+          onClearAll={() => {
+            void (async () => {
+              const ids = liveCatalogItems.map((i) => i.id);
+              if (ids.length === 0) return;
+              const { error } = await supabase
+                .from("catalog_items")
+                .update({ is_active: false })
+                .in("id", ids);
+              if (error) {
+                console.error("[rates] clear-all failed:", error.message);
+                showToast("List saaf nahi ho paayi, dobara try karein", () => {});
+                return;
+              }
+              await fetchLiveCatalogItems();
+              showToast("Poori rate list saaf ho gayi", () => {
+                void supabase
+                  .from("catalog_items")
+                  .update({ is_active: true })
+                  .in("id", ids)
+                  .then(() => fetchLiveCatalogItems());
+              });
+            })();
+          }}
           onGoHome={() => go("home")}
         />
       )}
