@@ -155,11 +155,19 @@ export const Route = createFileRoute('/api/public/telegram-webhook')({
           };
 
           const voice = message.voice ?? message.audio;
+          console.log(`[telegram][diag] voice_field=${JSON.stringify(voice ?? null)} text=${JSON.stringify(message.text ?? null)}`);
           if (voice) {
-            const fileUrl = await getTelegramFileUrl(voice.file_id);
-            form['NumMedia'] = '1';
-            form['MediaContentType0'] = voice.mime_type ?? 'audio/ogg';
-            form['MediaUrl0'] = fileUrl;
+            try {
+              const fileUrl = await getTelegramFileUrl(voice.file_id);
+              console.log(`[telegram][diag] file_url_resolved=${fileUrl} mime=${voice.mime_type ?? 'undefined'}`);
+              form['NumMedia'] = '1';
+              form['MediaContentType0'] = voice.mime_type ?? 'audio/ogg';
+              form['MediaUrl0'] = fileUrl;
+            } catch (err) {
+              console.error('[telegram][diag] getTelegramFileUrl failed:', err);
+              await sendTelegramMessage(chatId, 'Voice note download nahi ho saka. Thodi der mein dobara try karein.');
+              return jsonOk();
+            }
           }
 
           const channel: ChannelAdapter = {
