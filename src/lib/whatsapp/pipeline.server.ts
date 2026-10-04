@@ -132,6 +132,12 @@ function applySynonyms(text: string): string {
   return result;
 }
 
+const STOPWORDS = /\b(bhaiya|bhai|didi|ji|please|plz|bhejo|de\s*dena|de\s*do|chahiye|send|zara|jaldi|aaj|kal)\b|भैया|भाई|दीदी|जी/gi;
+
+function stripStopwords(text: string): string {
+  return text.replace(STOPWORDS, ' ').replace(/\s+/g, ' ').trim();
+}
+
 
 export async function parseTranscript(
   transcript: string,
