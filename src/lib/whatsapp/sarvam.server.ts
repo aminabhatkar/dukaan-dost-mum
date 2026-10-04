@@ -1,6 +1,6 @@
-// Sarvam AI speech-to-text (Saaras) for inbound WhatsApp voice notes.
+// Sarvam AI speech-to-text (Saaras) for inbound WhatsApp/Telegram voice notes.
 
-const SARVAM_STT_URL = 'https://api.sarvam.ai/speech-to-text-translate';
+const SARVAM_STT_URL = 'https://api.sarvam.ai/speech-to-text';
 
 export async function transcribeAudio(
   audio: ArrayBuffer,
@@ -22,6 +22,8 @@ export async function transcribeAudio(
   const form = new FormData();
   form.append('file', new Blob([audio], { type: contentType }), `voice.${ext}`);
   form.append('model', 'saaras:v2');
+  form.append('language_code', 'hi-IN');
+  form.append('with_timestamps', 'false');
 
   const res = await fetch(SARVAM_STT_URL, {
     method: 'POST',
