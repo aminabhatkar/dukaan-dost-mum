@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_secrets: {
+        Row: {
+          id: number
+          name: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: never
+          name: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          id?: never
+          name?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       catalog_items: {
         Row: {
           category: string
@@ -410,8 +431,6 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      zzz_vault_names: { Args: never; Returns: string[] }
-      zzz_vault_probe: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
