@@ -392,8 +392,25 @@ async function getTranscript(
   channel: ChannelAdapter,
 ): Promise<string> {
   if (numMedia > 0 && (form['MediaContentType0'] ?? '').startsWith('audio')) {
-    const audio = await channel.downloadMedia(form['MediaUrl0']!);
-    return await transcribeAudio(audio, form['MediaContentType0']!);
+    try {
+      const audio = await channel.downloadMedia(form['MediaUrl0']!);
+      const transcript = await transcribeAudio(audio, form['MediaContentType0']!);
+      if (!transcript) {
+        await channel.send(
+          form['From'] ?? '',
+          'Awaaz saaf nahi aayi. Kripya voice note dobara bhejein, ya order likh kar bhejein.',
+        );
+        return '';
+      }
+      return transcript;
+    } catch (err) {
+      console.error('[pipeline] voice transcription failed:', err);
+      await channel.send(
+        form['From'] ?? '',
+        'Voice note process nahi ho saka. Thodi der mein dobara try karein, ya order likh kar bhejein.',
+      );
+      return '';
+    }
   }
   return body;
 }
