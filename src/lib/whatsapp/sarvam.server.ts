@@ -21,7 +21,7 @@ export async function transcribeAudio(
 
   const form = new FormData();
   form.append('file', new Blob([audio], { type: contentType }), `voice.${ext}`);
-  form.append('model', 'saaras:v2');
+  form.append('model', 'saarika:v2.5');
   form.append('language_code', 'hi-IN');
   form.append('with_timestamps', 'false');
 
