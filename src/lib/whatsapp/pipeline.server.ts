@@ -148,8 +148,8 @@ export async function parseTranscript(
   let total = 0;
 
   for (const phrase of phrases) {
-    const { quantityText, multiplier, rest } = extractQuantity(phrase);
-    const cleaned = rest.replace(/["'“”‘’]/g, '').trim();
+    const { quantityText, multiplier, rest } = extractQuantity(stripStopwords(phrase));
+    const cleaned = stripStopwords(rest.replace(/["'“”‘’]/g, '').trim());
     const matchPhrase = applySynonyms(cleaned);
 
     const { data, error } = await supabaseAdmin.rpc('match_catalog_item' as never, {
