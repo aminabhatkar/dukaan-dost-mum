@@ -144,13 +144,20 @@ const SYNONYMS: Record<string, string> = {
 
 function applySynonyms(text: string): string {
   let result = text;
-  for (const [en, hi] of Object.entries(SYNONYMS)) {
-    result = result.replace(new RegExp(`\\b${en}\\b`, 'gi'), hi);
+  for (const [pattern, replacement] of Object.entries(SYNONYMS)) {
+    // For Devanagari entries (non-ASCII), use a simple substring replace
+    // without \b because word boundaries don't work with Unicode scripts.
+    // For ASCII entries, keep \b so "oil" doesn't match inside "foil".
+    const isDevanagari = /[\u0900-\u097F]/.test(pattern);
+    const regex = isDevanagari
+      ? new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+      : new RegExp(`\\b${pattern}\\b`, 'gi');
+    result = result.replace(regex, replacement);
   }
   return result;
 }
 
-const STOPWORDS = /\b(bhaiya|bhai|didi|ji|please|plz|bhejo|de\s*dena|de\s*do|chahiye|send|zara|jaldi|aaj|kal)\b|भैया|भाई|दीदी|जी/gi;
+const STOPWORDS = /\b(bhaiya|bhai|didi|ji|please|plz|bhejo|de\s*dena|de\s*do|chahiye|send|zara|jaldi|aaj|kal)\b|भैया|भाई|दीदी|जी/giu;
 
 function stripStopwords(text: string): string {
   return text.replace(STOPWORDS, ' ').replace(/\s+/g, ' ').trim();
