@@ -126,7 +126,6 @@ const SYNONYMS: Record<string, string> = {
   'मैगी': 'maggi',
   'चाय': 'chai patti',
   'चाय पत्ती': 'chai patti',
-  'चीनी': 'chini',
   'घी': 'ghee',
   'सरसों': 'sarson',
   'सरसों का तेल': 'sarson ka tel',
