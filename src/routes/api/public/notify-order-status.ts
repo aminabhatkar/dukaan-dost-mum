@@ -20,9 +20,16 @@ export const Route = createFileRoute('/api/public/notify-order-status')({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const expected = process.env['ORDER_NOTIFY_SECRET'];
-          if (!expected) {
-            console.error('[notify-order-status] ORDER_NOTIFY_SECRET is not configured');
+          // The shared secret lives in app_secrets (RLS-locked; only service_role
+          // and the trigger helper can read it). It is not in vault/env.
+          const { data: secretRow, error: secretErr } = await supabaseAdmin
+            .from('app_secrets')
+            .select('value')
+            .eq('name', 'ORDER_NOTIFY_SECRET')
+            .single();
+          const expected = secretRow?.value;
+          if (secretErr || !expected) {
+            console.error('[notify-order-status] ORDER_NOTIFY_SECRET is not available:', secretErr?.message);
             return jsonReply({ error: 'not configured' }, 500);
           }
           const provided = request.headers.get('x-notify-secret') ?? '';
