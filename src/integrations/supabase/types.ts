@@ -410,6 +410,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      zzz_vault_names: { Args: never; Returns: string[] }
       zzz_vault_probe: { Args: never; Returns: number }
     }
     Enums: {
