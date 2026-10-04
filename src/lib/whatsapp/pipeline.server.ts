@@ -50,15 +50,15 @@ export function splitPhrases(transcript: string): string[] {
 }
 
 const QTY_RE =
-  /(\d+(?:[.,]\d+)?|\bek\b|\bdo\b|\bteen\b|\bchar\b|\bpaanch\b|\bpanch\b)\s*(kg|kilo|gram|gm|g|litre|liter|ltr|l|ml|packet|pack|nag|piece|pcs|dozen|bottle|adad)?/i;
+  /(\d+(?:[.,]\d+)?|\bek\b|\bdo\b|\bteen\b|\bchar\b|\bpaanch\b|\bpanch\b|\bchah\b|\bchhe\b|\bchhah\b|\bsaat\b|\bsat\b|\baath\b|\bath\b|\bnau\b|\bdas\b|एक|दो|तीन|चार|पाँच|पांच|छह|छः|सात|आठ|नौ|दस)\s*(kg|kilo|gram|gm|g|litre|liter|ltr|l|ml|packet|pack|nag|piece|pcs|dozen|bottle|adad)?/i;
 
 const WORD_NUM: Record<string, number> = {
-  ek: 1,
-  do: 2,
-  teen: 3,
-  char: 4,
-  paanch: 5,
-  panch: 5,
+  // Romanized
+  ek: 1, do: 2, teen: 3, char: 4, paanch: 5, panch: 5,
+  chah: 6, chhe: 6, chhah: 6, saat: 7, sat: 7, aath: 8, ath: 8, nau: 9, das: 10,
+  // Devanagari (as Sarvam may transcribe)
+  'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पाँच': 5, 'पांच': 5,
+  'छह': 6, 'छः': 6, 'सात': 7, 'आठ': 8, 'नौ': 9, 'दस': 10,
 };
 
 export function extractQuantity(phrase: string): { quantityText: string; multiplier: number; rest: string } {
@@ -105,6 +105,23 @@ const SYNONYMS: Record<string, string> = {
   butter: 'makhan',
   salt: 'namak',
   oil: 'tel',
+  // Devanagari → romanized (for when Sarvam transcribes Hindi words in Devanagari)
+  'पनीर': 'paneer',
+  'दूध': 'doodh',
+  'आटा': 'atta',
+  'दही': 'dahi',
+  'अंडा': 'anda',
+  'अंडे': 'anda',
+  'चीनी': 'chini',
+  'नमक': 'namak',
+  'तेल': 'tel',
+  'मक्खन': 'makhan',
+  'साबुन': 'sabun',
+  // Common Hindi plurals → singular
+  'ande': 'anda',
+  'anday': 'anda',
+  'doodhen': 'doodh',
+  'sabun': 'sabun',
 };
 
 function applySynonyms(text: string): string {
