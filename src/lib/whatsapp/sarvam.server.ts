@@ -24,6 +24,7 @@ export async function transcribeAudio(
   form.append('file', new Blob([audio], { type: contentType }), `voice.${ext}`);
   form.append('model', 'saarika:v2.5');
   form.append('language_code', 'hi-IN');
+  form.append('target_language_code', 'en-IN');
   form.append('with_timestamps', 'false');
 
   const res = await fetch(SARVAM_STT_URL, {
