@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_secrets: {
+        Row: {
+          id: number
+          name: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: never
+          name: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          id?: never
+          name?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       catalog_items: {
         Row: {
           category: string

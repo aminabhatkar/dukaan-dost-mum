@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CatalogRouteImport } from './routes/catalog'
+import { Route as ApiPublicNotifyOrderStatusRouteImport } from './routes/api/public/notify-order-status'
 import { Route as ApiPublicParseRateListRouteImport } from './routes/api/public/parse-rate-list'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram-webhook'
 import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp-webhook'
@@ -25,6 +26,12 @@ const CatalogRoute = CatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNotifyOrderStatusRoute =
+  ApiPublicNotifyOrderStatusRouteImport.update({
+    id: '/api/public/notify-order-status',
+    path: '/api/public/notify-order-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicParseRateListRoute = ApiPublicParseRateListRouteImport.update({
   id: '/api/public/parse-rate-list',
   path: '/api/public/parse-rate-list',
@@ -46,6 +53,7 @@ const ApiPublicWhatsappWebhookRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/api/public/notify-order-status': typeof ApiPublicNotifyOrderStatusRoute
   '/api/public/parse-rate-list': typeof ApiPublicParseRateListRoute
   '/api/public/telegram-webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
@@ -53,6 +61,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/api/public/notify-order-status': typeof ApiPublicNotifyOrderStatusRoute
   '/api/public/parse-rate-list': typeof ApiPublicParseRateListRoute
   '/api/public/telegram-webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
@@ -61,6 +70,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/catalog': typeof CatalogRoute
+  '/api/public/notify-order-status': typeof ApiPublicNotifyOrderStatusRoute
   '/api/public/parse-rate-list': typeof ApiPublicParseRateListRoute
   '/api/public/telegram-webhook': typeof ApiPublicTelegramWebhookRoute
   '/api/public/whatsapp-webhook': typeof ApiPublicWhatsappWebhookRoute
@@ -70,6 +80,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/catalog'
+    | '/api/public/notify-order-status'
     | '/api/public/parse-rate-list'
     | '/api/public/telegram-webhook'
     | '/api/public/whatsapp-webhook'
@@ -77,6 +88,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/catalog'
+    | '/api/public/notify-order-status'
     | '/api/public/parse-rate-list'
     | '/api/public/telegram-webhook'
     | '/api/public/whatsapp-webhook'
@@ -84,6 +96,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/catalog'
+    | '/api/public/notify-order-status'
     | '/api/public/parse-rate-list'
     | '/api/public/telegram-webhook'
     | '/api/public/whatsapp-webhook'
@@ -92,6 +105,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CatalogRoute: typeof CatalogRoute
+  ApiPublicNotifyOrderStatusRoute: typeof ApiPublicNotifyOrderStatusRoute
   ApiPublicParseRateListRoute: typeof ApiPublicParseRateListRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
   ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
@@ -111,6 +125,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog'
       fullPath: '/catalog'
       preLoaderRoute: typeof CatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/notify-order-status': {
+      id: '/api/public/notify-order-status'
+      path: '/api/public/notify-order-status'
+      fullPath: '/api/public/notify-order-status'
+      preLoaderRoute: typeof ApiPublicNotifyOrderStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/parse-rate-list': {
@@ -140,6 +161,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CatalogRoute: CatalogRoute,
+  ApiPublicNotifyOrderStatusRoute: ApiPublicNotifyOrderStatusRoute,
   ApiPublicParseRateListRoute: ApiPublicParseRateListRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
   ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
