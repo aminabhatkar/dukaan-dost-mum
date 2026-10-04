@@ -1,4 +1,5 @@
 // Sarvam AI speech-to-text (Saaras) for inbound WhatsApp/Telegram voice notes.
+// Model: saarika:v2.5 on /speech-to-text endpoint (not the translate endpoint).
 
 const SARVAM_STT_URL = 'https://api.sarvam.ai/speech-to-text';
 
